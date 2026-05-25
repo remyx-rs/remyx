@@ -1,0 +1,25 @@
+[package]
+name = "remyx"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ratatui = { version = "0.30", default-features = false }
+crossterm = { version = "0.29", features = ["event-stream"], optional = true }
+futures = { version = "0.3.32", optional = true }
+
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+
+[features]
+default = ["crossterm"]
+crossterm = [
+    "dep:crossterm",
+    "dep:futures",
+    "ratatui/crossterm",
+]
+
+[lib]
+name = "remyx"
+path = "src/lib.rs"
