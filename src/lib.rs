@@ -42,9 +42,11 @@ pub async fn run<A: Application, B: Backend>(mut terminal: Terminal<B>) -> io::R
                 | crossterm::event::Event::FocusLost
                 | crossterm::event::Event::Key(_)
                 | crossterm::event::Event::Mouse(_)
-                | crossterm::event::Event::Paste(_) => {
+                | crossterm::event::Event::Paste(_)
+                | crossterm::event::Event::Resize(_, _) => {
                     let mut shell = Shell::new(&mut messages);
-                    view.update(&mut tree, event, &mut shell);
+                    let area = terminal.get_frame().area();
+                    view.update(&tree, area, event, &mut shell);
 
                     if !shell.redraw() {
                         continue;
@@ -54,9 +56,6 @@ pub async fn run<A: Application, B: Backend>(mut terminal: Terminal<B>) -> io::R
 
                     view = app.view();
                     tree.diff(&app.view());
-                }
-                crossterm::event::Event::Resize(_, _) => {
-                    view = app.view();
                 }
             },
             Event::Subscription(message) => {

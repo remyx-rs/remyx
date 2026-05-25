@@ -16,6 +16,7 @@ pub mod list;
 
 pub type GenericState = RefCell<Box<dyn Any>>;
 
+#[derive(Debug)]
 pub struct Tree {
     id: TypeId,
     state: Option<GenericState>,
@@ -73,7 +74,7 @@ impl Tree {
 pub trait Element<Message> {
     fn draw(&self, tree: &Tree, area: Rect, buffer: &mut Buffer);
 
-    fn update(&self, tree: &Tree, event: Event, shell: &mut Shell<'_, Message>);
+    fn update(&self, tree: &Tree, area: Rect, event: Event, shell: &mut Shell<'_, Message>);
 
     fn id(&self) -> TypeId;
 
@@ -97,7 +98,14 @@ macro_rules! impl_stateless_element {
                 None
             }
 
-            fn update(&self, _tree: &Tree, _event: Event, _shell: &mut Shell<'_, Message>) {}
+            fn update(
+                &self,
+                _tree: &Tree,
+                _area: Rect,
+                _event: Event,
+                _shell: &mut Shell<'_, Message>,
+            ) {
+            }
 
             fn children(&self) -> &[Box<dyn Element<Message>>] {
                 &[]
@@ -137,7 +145,7 @@ where
         &[]
     }
 
-    fn update(&self, _tree: &Tree, _event: Event, _shell: &mut Shell<'_, Message>) {}
+    fn update(&self, _tree: &Tree, _area: Rect, _event: Event, _shell: &mut Shell<'_, Message>) {}
 }
 
 // text primitives

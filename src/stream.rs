@@ -1,6 +1,8 @@
 #[cfg(feature = "crossterm")]
 use std::io;
-use std::{pin::Pin, task::Poll};
+use std::{hash::Hash, pin::Pin, task::Poll};
+
+use futures::{StreamExt, stream::LocalBoxStream};
 
 pub struct Stream<Message> {
     sources: Vec<Source<Message>>,
@@ -52,19 +54,35 @@ impl<Message> futures::Stream for Stream<Message> {
 
 pub struct Source<Message> {
     id: u64,
-    stream: Pin<Box<dyn futures::Stream<Item = Message>>>,
+    stream: LocalBoxStream<'static, Message>,
 }
 
 impl<Message> Source<Message> {
-    pub fn init<O: 'static>(f: fn() -> O) -> Self
+    pub fn new<O: 'static>(f: fn() -> O) -> Self
     where
         O: futures::Stream<Item = Message>,
     {
         let id: u64 = f as usize as u64;
+        let stream = futures::stream::once(async move { f() }).flatten();
 
         Self {
             id,
-            stream: Box::pin(f()),
+            stream: Box::pin(stream),
+        }
+    }
+
+    pub fn with<I: 'static, O: 'static>(data: I, f: fn(&I) -> O) -> Self
+    where
+        I: Hash,
+        O: futures::Stream<Item = Message>,
+    {
+        // TODO: Compose this with part of fn pointer and other part with data hash
+        let id: u64 = f as usize as u64;
+        let stream = futures::stream::once(async move { f(&data) }).flatten();
+
+        Self {
+            id,
+            stream: Box::pin(stream),
         }
     }
 }

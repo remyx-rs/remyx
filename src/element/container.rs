@@ -17,13 +17,14 @@ pub struct Container<Message> {
 }
 
 impl<M> Container<M> {
-    pub fn with_layout(layout: Layout) -> Self {
+    pub fn layout(layout: Layout) -> Self {
         Self {
             layout,
             children: vec![],
         }
     }
-    pub fn with_child(mut self, child: impl Element<M> + 'static) -> Self {
+
+    pub fn with(mut self, child: impl Element<M> + 'static) -> Self {
         self.children.push(Box::new(child));
         self
     }
@@ -34,8 +35,9 @@ impl<Message: 'static> Element<Message> for Container<Message> {
         self.layout
             .split(area)
             .iter()
+            .zip(tree.children.iter())
             .zip(self.children.iter())
-            .for_each(|(area, child)| {
+            .for_each(|((area, tree), child)| {
                 child.draw(tree, *area, buffer);
             });
     }
@@ -52,10 +54,14 @@ impl<Message: 'static> Element<Message> for Container<Message> {
         self.children.as_slice()
     }
 
-    fn update(&self, tree: &Tree, event: Event, shell: &mut Shell<'_, Message>) {
-        self.children
+    fn update(&self, tree: &Tree, area: Rect, event: Event, shell: &mut Shell<'_, Message>) {
+        self.layout
+            .split(area)
             .iter()
             .zip(tree.children.iter())
-            .for_each(|(child, tree)| child.update(tree, event.clone(), shell));
+            .zip(self.children.iter())
+            .for_each(|((area, tree), child)| {
+                child.update(tree, *area, event.clone(), shell);
+            });
     }
 }
