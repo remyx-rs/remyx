@@ -5,6 +5,8 @@
 Framework for building TUIs on top of Ratatui.  
 It focuses on simplicity and ease of use, and it is inspired by Iced.
 
+<img width="600" height="300" alt="html_picker" src="https://github.com/user-attachments/assets/8b23549f-7785-4c52-9b80-cf6b499e5dbe" />
+
 </div>
 
 ## Overview
