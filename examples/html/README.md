@@ -6,6 +6,10 @@ A basic example showing:
 * how to implement the application view and update methods
 * and how to use pickList widget.
 
-<img width="800" height="425" alt="html_picker" src="https://github.com/user-attachments/assets/ba9d9ad3-36e3-4eef-92c9-b1490eac7a8c" />
+
+
+<div align="center">
+<img width="512" height="288" alt="html_picker" src="https://github.com/user-attachments/assets/8b23549f-7785-4c52-9b80-cf6b499e5dbe" />
+
 
 
