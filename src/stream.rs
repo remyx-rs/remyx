@@ -1,5 +1,6 @@
 use futures::future::LocalBoxFuture;
 use futures::{StreamExt, stream::LocalBoxStream};
+use std::hash::{DefaultHasher, Hasher};
 #[cfg(feature = "crossterm")]
 use std::io;
 use std::sync::atomic::AtomicU64;
@@ -86,8 +87,10 @@ impl<Message: 'static> Source<Message> {
         I: Hash,
         O: futures::Stream<Item = Message>,
     {
-        // TODO: Compose this with part of fn pointer and other part with data hash
-        let id: u64 = f as usize as u64;
+        let mut hasher = DefaultHasher::new();
+        data.hash(&mut hasher);
+
+        let id: u64 = ((f as usize as u64 & hasher.finish()) << 1) & Self::HASH_MASK;
         let stream = futures::stream::once(async move { f(&data) }).flatten();
 
         Self {
