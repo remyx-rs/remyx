@@ -1,7 +1,16 @@
 [package]
 name = "remyx"
+description = "A framework for building TUIs on top of Ratatui"
 version = "0.1.0"
 edition = "2024"
+authors = ["Manuel Garcia de la Vega Hoyo <manuelgdlvh@gmail.com>"]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/manuelgdlvh/remyx"
+categories = ["gui"]
+keywords = ["tui", "elm", "ui", "gui", "ratatui", "interface"]
+rust-version = "1.92"
+
 
 [dependencies]
 ratatui = { version = "0.30", default-features = false }
