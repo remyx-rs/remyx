@@ -1,14 +1,12 @@
 use futures::StreamExt;
 use ratatui::{Terminal, prelude::Backend};
-use std::{io, pin::Pin};
+use std::io;
 
 use crate::{
     element::{Element, Tree},
-    stream::{self, Source},
+    stream::{self, LocalBoxFusedStream, Source},
     task::Task,
 };
-
-type LocalBoxFusedStream<O> = Pin<Box<dyn futures::stream::FusedStream<Item = O>>>;
 
 pub struct Runner<A, B>
 where
@@ -42,71 +40,66 @@ where
             app,
             tree,
             subscription_events: stream::Stream::init(subscriptions),
-            terminal_events: Box::pin(stream::terminal_event().fuse()),
+            terminal_events: stream::terminal_event(),
             messages: Vec::new(),
         })
     }
 
     pub async fn run(mut self) -> io::Result<()> {
-        self.redraw()?;
+        self.redraw();
         loop {
             futures::select_biased! {
                 event = self.subscription_events.next() => match event {
                     Some(msg) => {
-                        self.update_app(msg);
+                        self.update(msg);
                     }
                     None => break,
                 },
-
                 event = self.terminal_events.next() => match event {
                     Some(Ok(event)) => {
-                        self.handle_terminal_event(event)?;
+                        self.handle_terminal_event(event);
                     }
                     Some(Err(e)) => return Err(e),
                     None => break,
                 },
             }
 
-            self.redraw()?;
+            self.redraw();
         }
 
         Ok(())
     }
 
-    fn update_app(&mut self, msg: A::Message) {
+    fn update(&mut self, msg: A::Message) {
         if let Some(task) = self.app.update(msg) {
             self.subscription_events.add(task.into());
         }
     }
 
-    fn handle_terminal_event(&mut self, event: crossterm::event::Event) -> io::Result<()> {
+    fn handle_terminal_event(&mut self, event: crossterm::event::Event) {
         let mut shell = Shell::new(&mut self.messages);
         let area = self.terminal.get_frame().area();
 
         self.app.view().update(&self.tree, area, event, &mut shell);
 
         if !shell.redraw() {
-            return Ok(());
+            return;
         }
 
         let messages = self.messages.drain(..).collect::<Vec<_>>();
 
         for msg in messages {
-            self.update_app(msg);
+            self.update(msg);
         }
-
-        Ok(())
     }
 
-    fn redraw(&mut self) -> io::Result<()> {
+    fn redraw(&mut self) {
         let view = self.app.view();
         self.tree.diff(&view);
 
         let _ = self.terminal.draw(|frame| {
             view.draw(&self.tree, frame.area(), frame.buffer_mut());
         });
-
-        Ok(())
     }
 }
 

@@ -1,10 +1,11 @@
 use futures::future::LocalBoxFuture;
 use futures::{StreamExt, stream::LocalBoxStream};
 use std::hash::{DefaultHasher, Hasher};
-#[cfg(feature = "crossterm")]
 use std::io;
 use std::sync::atomic::AtomicU64;
 use std::{hash::Hash, pin::Pin, task::Poll};
+
+pub type LocalBoxFusedStream<O> = Pin<Box<dyn futures::stream::FusedStream<Item = O>>>;
 
 pub struct Stream<Message> {
     sources: Vec<Source<Message>>,
@@ -16,7 +17,9 @@ impl<Message> Stream<Message> {
     }
 
     pub fn add(&mut self, source: Source<Message>) {
-        self.sources.push(source)
+        if self.sources.iter().all(|current| current.id != source.id) {
+            self.sources.push(source)
+        }
     }
 
     pub fn diff(&mut self, sources: Vec<Source<Message>>) {
@@ -24,9 +27,7 @@ impl<Message> Stream<Message> {
             .retain(|current| sources.iter().any(|incoming| incoming.id == current.id));
 
         for source in sources {
-            if self.sources.iter().all(|current| current.id != source.id) {
-                self.sources.push(source);
-            }
+            self.add(source);
         }
     }
 }
@@ -68,14 +69,14 @@ pub struct Source<Message> {
 }
 
 impl<Message: 'static> Source<Message> {
-    pub const HASH_MASK: u64 = 1111_1111_1111_1110;
-    const AUTO_INCREMENTAL_MASK: u64 = 0000_0000_0000_0001;
+    const STATIC_MASK: u64 = 1111_1111_1111_1110;
+    const DYNAMIC_MASK: u64 = 0000_0000_0000_0001;
 
     pub fn new<O: 'static>(f: fn() -> O) -> Self
     where
         O: futures::Stream<Item = Message>,
     {
-        let id: u64 = ((f as usize as u64) << 1) & Self::HASH_MASK;
+        let id: u64 = ((f as usize as u64) << 1) & Self::STATIC_MASK;
         let stream = futures::stream::once(async move { f() }).flatten();
         Self {
             id,
@@ -90,7 +91,7 @@ impl<Message: 'static> Source<Message> {
         let mut hasher = DefaultHasher::new();
         data.hash(&mut hasher);
 
-        let id: u64 = ((f as usize as u64 & hasher.finish()) << 1) & Self::HASH_MASK;
+        let id: u64 = ((f as usize as u64 & hasher.finish()) << 1) & Self::STATIC_MASK;
         let stream = futures::stream::once(async move { f(&data) }).flatten();
 
         Self {
@@ -99,11 +100,10 @@ impl<Message: 'static> Source<Message> {
         }
     }
 
-    pub(crate) fn future(fut: LocalBoxFuture<'static, Message>) -> Self {
+    pub fn future(fut: LocalBoxFuture<'static, Message>) -> Self {
         static ID: AtomicU64 = AtomicU64::new(0);
 
-        let id = (ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst) << 1)
-            | Self::AUTO_INCREMENTAL_MASK;
+        let id = (ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst) << 1) | Self::DYNAMIC_MASK;
 
         Self {
             id,
@@ -113,6 +113,6 @@ impl<Message: 'static> Source<Message> {
 }
 
 #[cfg(feature = "crossterm")]
-pub fn terminal_event() -> impl futures::Stream<Item = io::Result<crossterm::event::Event>> {
-    crossterm::event::EventStream::new()
+pub fn terminal_event() -> LocalBoxFusedStream<io::Result<crossterm::event::Event>> {
+    Box::pin(crossterm::event::EventStream::new().fuse())
 }
