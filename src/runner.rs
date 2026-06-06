@@ -1,38 +1,46 @@
-use futures::StreamExt;
-use ratatui::{Terminal, prelude::Backend};
-use std::io;
+use futures::{FutureExt, StreamExt};
+use ratatui::{Terminal, backend};
+use std::{io, marker::PhantomData};
 
 use crate::{
     element::{Element, Tree},
+    runtime::{self, JoinHandle},
     stream::{self, LocalBoxFusedStream, Source},
-    task::Task,
+    terminal,
 };
 
-pub struct Runner<A, B>
+pub struct Runner<Application, Runtime, Backend>
 where
-    A: Application,
-    B: Backend,
+    Application: crate::Application,
+    Runtime: runtime::Runtime,
+    Backend: ratatui::backend::Backend,
 {
-    terminal: Terminal<B>,
-    app: A,
+    terminal: Terminal<Backend>,
+    app: Application,
     tree: Tree,
-    subscription_events: stream::Stream<A::Message>,
+    subscription_events: stream::Stream<Application::Message>,
     terminal_events: LocalBoxFusedStream<io::Result<crossterm::event::Event>>,
-    messages: Vec<A::Message>,
+    messages: Vec<Application::Message>,
+    _rt_marker: PhantomData<Runtime>,
 }
 
-impl<A, B> Runner<A, B>
+impl<Application, Runtime, Backend> Runner<Application, Runtime, Backend>
 where
-    A: Application,
-    B: Backend,
+    Application: crate::Application,
+    Runtime: runtime::Runtime,
+    Backend: backend::Backend,
 {
-    pub fn new(terminal: Terminal<B>) -> io::Result<Self> {
-        let (app, boot_fn) = A::init();
+    pub fn new(terminal: Terminal<Backend>) -> io::Result<Self> {
+        let (app, task) = Application::init();
         let tree = Tree::init(&app.view());
 
         let mut subscriptions = app.subscription();
-        if let Some(boot_fn) = boot_fn {
-            subscriptions.push(boot_fn.into());
+        if let Some(task) = task {
+            let fut = Runtime::spawn(task).into_future().map(|res| match res {
+                Ok(val) => val,
+                Err(_) => panic!(),
+            });
+            subscriptions.push(Source::future(fut));
         }
 
         Ok(Self {
@@ -40,8 +48,9 @@ where
             app,
             tree,
             subscription_events: stream::Stream::init(subscriptions),
-            terminal_events: stream::terminal_event(),
+            terminal_events: terminal::events(),
             messages: Vec::new(),
+            _rt_marker: PhantomData,
         })
     }
 
@@ -70,9 +79,13 @@ where
         Ok(())
     }
 
-    fn update(&mut self, msg: A::Message) {
+    fn update(&mut self, msg: Application::Message) {
         if let Some(task) = self.app.update(msg) {
-            self.subscription_events.add(task.into());
+            let fut = Runtime::spawn(task).into_future().map(|res| match res {
+                Ok(val) => val,
+                Err(_) => panic!(),
+            });
+            self.subscription_events.add(Source::future(fut));
         }
     }
 
@@ -87,7 +100,6 @@ where
         }
 
         let messages = self.messages.drain(..).collect::<Vec<_>>();
-
         for msg in messages {
             self.update(msg);
         }
@@ -100,19 +112,6 @@ where
         let _ = self.terminal.draw(|frame| {
             view.draw(&self.tree, frame.area(), frame.buffer_mut());
         });
-    }
-}
-
-pub trait Application {
-    type Message: 'static;
-
-    fn init() -> (Self, Option<Task<Self::Message>>)
-    where
-        Self: Sized;
-    fn view(&self) -> impl Element<Self::Message> + use<Self>;
-    fn update(&mut self, message: Self::Message) -> Option<Task<Self::Message>>;
-    fn subscription(&self) -> Vec<Source<Self::Message>> {
-        vec![]
     }
 }
 

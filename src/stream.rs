@@ -1,8 +1,6 @@
-use futures::future::LocalBoxFuture;
 use futures::{StreamExt, stream::LocalBoxStream};
 use std::hash::{DefaultHasher, Hasher};
-use std::io;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{hash::Hash, pin::Pin, task::Poll};
 
 pub type LocalBoxFusedStream<O> = Pin<Box<dyn futures::stream::FusedStream<Item = O>>>;
@@ -69,12 +67,12 @@ pub struct Source<Message> {
 }
 
 impl<Message: 'static> Source<Message> {
-    const STATIC_MASK: u64 = 1111_1111_1111_1110;
-    const DYNAMIC_MASK: u64 = 0000_0000_0000_0001;
+    const STATIC_MASK: u64 = 1;
+    const DYNAMIC_MASK: u64 = 0o1;
 
-    pub fn new<O: 'static>(f: fn() -> O) -> Self
+    pub fn new<S>(f: fn() -> S) -> Self
     where
-        O: futures::Stream<Item = Message>,
+        S: futures::Stream<Item = Message> + 'static,
     {
         let id: u64 = ((f as usize as u64) << 1) & Self::STATIC_MASK;
         let stream = futures::stream::once(async move { f() }).flatten();
@@ -83,10 +81,11 @@ impl<Message: 'static> Source<Message> {
             stream: Box::pin(stream),
         }
     }
-    pub fn with<I: 'static, O: 'static>(data: I, f: fn(&I) -> O) -> Self
+
+    pub fn with<I, S>(data: I, f: fn(&I) -> S) -> Self
     where
-        I: Hash,
-        O: futures::Stream<Item = Message>,
+        I: Hash + 'static,
+        S: futures::Stream<Item = Message> + 'static,
     {
         let mut hasher = DefaultHasher::new();
         data.hash(&mut hasher);
@@ -100,19 +99,16 @@ impl<Message: 'static> Source<Message> {
         }
     }
 
-    pub fn future(fut: LocalBoxFuture<'static, Message>) -> Self {
+    pub fn future<F>(fut: F) -> Self
+    where
+        F: Future<Output = Message> + 'static,
+    {
         static ID: AtomicU64 = AtomicU64::new(0);
 
-        let id = (ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst) << 1) | Self::DYNAMIC_MASK;
-
+        let id = (ID.fetch_add(1, Ordering::SeqCst) << 1) | Self::DYNAMIC_MASK;
         Self {
             id,
             stream: Box::pin(futures::stream::once(fut)),
         }
     }
-}
-
-#[cfg(feature = "crossterm")]
-pub fn terminal_event() -> LocalBoxFusedStream<io::Result<crossterm::event::Event>> {
-    Box::pin(crossterm::event::EventStream::new().fuse())
 }

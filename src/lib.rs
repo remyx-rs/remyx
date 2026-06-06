@@ -1,18 +1,48 @@
-use ratatui::Terminal;
-use ratatui::backend::Backend;
+use self::{element::Element, runner::Runner, stream::Source, task::Task};
+use ratatui::{Terminal, backend};
 use std::io;
 
-use crate::runner::{Application, Runner};
+pub use ratatui;
 
 pub mod element;
-pub mod runner;
+mod runner;
+pub mod runtime;
 pub mod stream;
 pub mod task;
+mod terminal;
 
-pub async fn run<A, B>(terminal: Terminal<B>) -> io::Result<()>
+pub fn run<Application, Runtime, Backend>(terminal: Terminal<Backend>) -> io::Result<()>
 where
-    A: Application,
-    B: Backend,
+    Runtime: runtime::Runtime,
+    Application: self::Application,
+    Backend: backend::Backend,
 {
-    Runner::<A, B>::new(terminal)?.run().await
+    let rt = Runtime::new(1);
+    with_runtime::<Application, Runtime, Backend>(rt, terminal)
+}
+
+pub fn with_runtime<Application, Runtime, Backend>(
+    runtime: Runtime,
+    terminal: Terminal<Backend>,
+) -> io::Result<()>
+where
+    Runtime: runtime::Runtime,
+    Application: self::Application,
+    Backend: backend::Backend,
+{
+    let runner = Runner::<Application, Runtime, Backend>::new(terminal)?;
+    runtime.block_on(runner.run())
+}
+
+pub trait Application {
+    type Message: Send + 'static;
+
+    fn init() -> (Self, Option<Task<Self::Message>>)
+    where
+        Self: Sized;
+    fn view(&self) -> impl Element<Self::Message>;
+    fn update(&mut self, message: Self::Message) -> Option<Task<Self::Message>>;
+    fn subscription(&self) -> Vec<Source<Self::Message>> {
+        vec![]
+    }
 }
