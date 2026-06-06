@@ -38,23 +38,6 @@ pub struct App {
     html_page: String,
 }
 
-#[derive(Copy, Clone)]
-pub enum Link {
-    Rust,
-    C,
-    Java,
-}
-
-impl Into<ListItem<'static>> for Link {
-    fn into(self) -> ListItem<'static> {
-        match self {
-            Link::Rust => ListItem::new("Rust"),
-            Link::C => ListItem::new("C"),
-            Link::Java => ListItem::new("Java"),
-        }
-    }
-}
-
 pub enum Message {
     LinkChanged(Link),
     ContentChanged(String),
@@ -125,6 +108,23 @@ impl Application for App {
                 self.html_page = content;
                 None
             }
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum Link {
+    Rust,
+    C,
+    Java,
+}
+
+impl Into<ListItem<'static>> for Link {
+    fn into(self) -> ListItem<'static> {
+        match self {
+            Link::Rust => ListItem::new("Rust"),
+            Link::C => ListItem::new("C"),
+            Link::Java => ListItem::new("Java"),
         }
     }
 }

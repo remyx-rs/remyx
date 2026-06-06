@@ -18,15 +18,14 @@ rust-version = "1.92"
 [dependencies]
 ratatui = { version = "0.30", default-features = false }
 crossterm = { version = "0.29", features = ["event-stream"], optional = true }
-futures = { version = "0.3.32", optional = true }
+futures = { version = "0.3.32" }
 tokio = {version = "1.52.3", features = ["full"], optional = true}
 
 [features]
 default = ["crossterm", "tokio"]
-tokio = ["dep:tokio", "dep:futures"]
+tokio = ["dep:tokio" ]
 crossterm = [
     "dep:crossterm",
-    "dep:futures",
     "ratatui/crossterm",
 ]
 
