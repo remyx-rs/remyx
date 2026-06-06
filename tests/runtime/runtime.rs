@@ -3,6 +3,7 @@ use std::time::Duration;
 use remyx::runtime::time::Time;
 use remyx::runtime::{JoinHandle, Runtime, oneshot};
 
+#[allow(clippy::extra_unused_type_parameters)]
 pub async fn block_on_returns_completed_future_value<R: Runtime>() {
     assert_eq!(async { "hello world!" }.await, "hello world!");
 }

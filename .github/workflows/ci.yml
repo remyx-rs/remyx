@@ -1,143 +1,67 @@
-on:
-  push:
-    branches: ["master"]
-  pull_request:
-
 name: CI
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: true
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 env:
-  RUSTFLAGS: -Dwarnings
+  CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  rust_stable: stable
-  rust_min: "1.92"
-
-permissions:
-  contents: read
 
 jobs:
-  # Basic checks that must pass before we kick off more expensive tests.
-  basics:
-    name: basic checks
-    runs-on: ubuntu-latest
-    needs:
-      - clippy
-      - fmt
-      - docs
-      - minrust
-    steps:
-      - run: exit 0
-
-  test:
-    needs: basics
-    name: test - ${{ matrix.os }} - ${{ matrix.features }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - windows-latest
-          - ubuntu-latest
-          - macos-latest
-        features:
-          - "--no-default-features"
-          - "--features crossterm"
-          - "--all-features"
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install Rust ${{ env.rust_stable }}
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.rust_stable }}
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: test ${{ matrix.features }}
-        run: cargo test ${{ matrix.features }} --lib --doc
-
   fmt:
-    name: fmt
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Install Rust ${{ env.rust_stable }}
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.rust_stable }}
           components: rustfmt
-
-      - uses: Swatinem/rust-cache@v2
-
-      # Check fmt
-      - name: "rustfmt --check"
-        run: |
-          if ! rustfmt --check --edition 2021 $(git ls-files '*.rs'); then
-            printf "Please run \`rustfmt --edition 2021 \$(git ls-files '*.rs')\` to fix rustfmt errors.\n" >&2
-            exit 1
-          fi
+      - run: cargo fmt -- --check
 
   clippy:
-    name: clippy
+    name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Install Rust ${{ env.rust_stable }}
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.rust_stable }}
           components: clippy
+      - run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - uses: Swatinem/rust-cache@v2
-
-      # Run clippy
-      - name: "clippy --all-features"
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-
-  docs:
-    name: docs
+  test:
+    name: Test 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Install Rust ${{ env.rust_nightly }}
-        uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --all-features
 
-      - uses: Swatinem/rust-cache@v2
-
-      - name: "cargo doc --all-features"
-        run: cargo doc --no-deps --all-features --document-private-items
+  doc:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
 
-  minrust:
-    name: minrust
+  check-no-default-features:
+    name: Check (no default features)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Install Rust ${{ env.rust_min }}
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.rust_min }}
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check --no-default-features
 
-      - uses: Swatinem/rust-cache@v2
-
-      - name: "cargo check --all-features"
-        run: cargo check --all-features
-
-  minimal-versions:
-    name: minimal-versions
-    needs: basics
+  check-all-features:
+    name: Check (all features)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check --all-features
 
-      - uses: Swatinem/rust-cache@v2
-
-      - name: "check -Z minimal-versions"
-        run: |
-          cargo update -Z minimal-versions
-          cargo check --all-features

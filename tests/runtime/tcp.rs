@@ -12,7 +12,7 @@ use remyx::runtime::{
 pub async fn listener_bind_succeeds_on_localhost<R: Runtime>() {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080);
     let listener = R::Tcp::listener(addr).await;
-    assert!(matches!(listener, Ok(_)));
+    assert!(listener.is_ok());
 }
 
 pub async fn stream_connect_succeeds_to_bound_listener<R: Runtime>() {
@@ -21,11 +21,11 @@ pub async fn stream_connect_succeeds_to_bound_listener<R: Runtime>() {
         let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8081);
         let listener = R::Tcp::listener(addr).await.unwrap();
 
-        while let Ok(_) = listener.accept().await {}
+        while listener.accept().await.is_ok() {}
     });
     R::Time::sleep(Duration::from_millis(250)).await;
     let stream = R::Tcp::stream(addr).await;
-    assert!(matches!(stream, Ok(_)));
+    assert!(stream.is_ok());
 }
 
 pub async fn stream_read_write_round_trip_succeeds<R: Runtime>() {

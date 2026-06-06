@@ -7,6 +7,6 @@ repository = "https://github.com/manuelgdlvh/remyx"
 rust-version = "1.92"
 
 [dependencies]
-remyx = { path = "../..", features = ["crossterm", "tokio"] }
+remyx = { path = "../..", features =  ["tokio"] }
 reqwest = "0.13.4"
 lol_html = "2.9.0"
