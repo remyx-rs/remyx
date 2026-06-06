@@ -129,7 +129,7 @@ where
         let (tx, mut rx) = R::Oneshot::channel::<JoinHandleOf<R, F::Output>>();
         let callback: Callback = Box::pin(async move {
             let handle = R::spawn(f);
-            if let Err(_) = tx.send(handle) {}
+            let _ = tx.send(handle);
         });
 
         self.tx.send(callback).await.map_err(|err| match err {
