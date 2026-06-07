@@ -94,7 +94,7 @@ impl Tree {
 pub trait Element<Message> {
     fn draw(&self, tree: &Tree, area: Rect, buffer: &mut Buffer);
 
-    fn update(&self, _tree: &Tree, _area: Rect, _event: Event, _shell: &mut Shell<'_, Message>) {}
+    fn update(&self, _tree: &Tree, _area: Rect, _event: Event, _shell: &mut Shell<Message>) {}
 
     fn id(&self) -> TypeId;
 

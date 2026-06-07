@@ -54,7 +54,7 @@ impl<Message: 'static> Element<Message> for Container<Message> {
         self.children.as_slice()
     }
 
-    fn update(&self, tree: &Tree, area: Rect, event: Event, shell: &mut Shell<'_, Message>) {
+    fn update(&self, tree: &Tree, area: Rect, event: Event, shell: &mut Shell<Message>) {
         self.layout
             .split(area)
             .iter()

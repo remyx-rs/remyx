@@ -78,6 +78,9 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
+        if this.queue.is_empty() {
+            return Poll::Pending;
+        }
         Pin::new(&mut this.queue).poll_next(cx)
     }
 }
@@ -88,6 +91,6 @@ where
     Message: Send,
 {
     fn is_terminated(&self) -> bool {
-        self.queue.is_terminated()
+        false
     }
 }

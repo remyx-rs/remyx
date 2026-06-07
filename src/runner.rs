@@ -5,8 +5,8 @@ use std::{io, marker::PhantomData};
 use crate::{
     element::{Element, Tree},
     runtime::{self, JoinHandle},
-    stream::{self, LocalBoxFusedStream},
-    task, terminal,
+    stream::LocalBoxFusedStream,
+    subscription, task, terminal,
 };
 
 pub struct Runner<Application, Runtime, Backend>
@@ -18,10 +18,10 @@ where
     terminal: Terminal<Backend>,
     app: Application,
     tree: Tree,
+    shell: Shell<Application::Message>,
     tasks: task::Pending<Runtime, Application::Message>,
-    subscription_events: stream::Stream<Application::Message>,
+    subscriptions: subscription::Set<Application::Message>,
     terminal_events: LocalBoxFusedStream<io::Result<crossterm::event::Event>>,
-    messages: Vec<Application::Message>,
     _rt_marker: PhantomData<Runtime>,
 }
 
@@ -34,21 +34,22 @@ where
     pub fn new(terminal: Terminal<Backend>) -> io::Result<Self> {
         let (app, task) = Application::init();
         let tree = Tree::init(&app.view());
-        let subscriptions = app.subscription();
+        let shell = Shell::new();
         let tasks = task::Pending::new();
         if let Some(task) = task {
             let task = Runtime::spawn(task).into_future();
             tasks.register(task);
         }
+        let subscriptions = subscription::Set::new();
 
         Ok(Self {
             terminal,
             app,
             tree,
+            shell,
             tasks,
-            subscription_events: stream::Stream::init(subscriptions),
+            subscriptions,
             terminal_events: terminal::events(),
-            messages: Vec::new(),
             _rt_marker: PhantomData,
         })
     }
@@ -57,11 +58,8 @@ where
         self.redraw();
         loop {
             futures::select_biased! {
-                event = self.subscription_events.next() => match event {
-                    Some(msg) => {
-                        self.update(msg);
-                    }
-                    None => break,
+                subscription = self.subscriptions.next() => if let Some(msg) = subscription {
+                    self.update(msg);
                 },
                 task = self.tasks.next() => match task {
                     Some(Ok(msg)) => {
@@ -76,7 +74,9 @@ where
                 },
                 event = self.terminal_events.next() => match event {
                     Some(Ok(event)) => {
-                        self.handle_terminal_event(event);
+                        if !self.handle_terminal_event(event) {
+                            continue;
+                        }
                     }
                     Some(Err(e)) => return Err(e),
                     None => break,
@@ -96,25 +96,27 @@ where
         }
     }
 
-    fn handle_terminal_event(&mut self, event: crossterm::event::Event) {
-        let mut shell = Shell::new(&mut self.messages);
+    fn handle_terminal_event(&mut self, event: crossterm::event::Event) -> bool {
         let area = self.terminal.get_frame().area();
+        self.app
+            .view()
+            .update(&self.tree, area, event, &mut self.shell);
 
-        self.app.view().update(&self.tree, area, event, &mut shell);
-
-        if !shell.redraw() {
-            return;
+        if !self.shell.should_redraw() {
+            return false;
         }
 
-        let messages = self.messages.drain(..).collect::<Vec<_>>();
-        for msg in messages {
+        for msg in self.shell.clear() {
             self.update(msg);
         }
+
+        true
     }
 
     fn redraw(&mut self) {
         let view = self.app.view();
         self.tree.diff(&view);
+        self.subscriptions.diff(self.app.subscription());
 
         let _ = self.terminal.draw(|frame| {
             view.draw(&self.tree, frame.area(), frame.buffer_mut());
@@ -123,15 +125,15 @@ where
 }
 
 #[derive(Debug)]
-pub struct Shell<'a, Message> {
-    messages: &'a mut Vec<Message>,
+pub struct Shell<Message> {
+    messages: Vec<Message>,
     redraw_requested: bool,
 }
 
-impl<'a, Message> Shell<'a, Message> {
-    pub fn new(messages: &'a mut Vec<Message>) -> Self {
+impl<Message> Shell<Message> {
+    fn new() -> Self {
         Self {
-            messages,
+            messages: Vec::new(),
             redraw_requested: false,
         }
     }
@@ -140,11 +142,17 @@ impl<'a, Message> Shell<'a, Message> {
         self.messages.push(message);
     }
 
-    pub fn redraw(&self) -> bool {
+    pub fn should_redraw(&self) -> bool {
         self.redraw_requested || !self.messages.is_empty()
     }
 
     pub fn request_redraw(&mut self) {
         self.redraw_requested = true;
+    }
+
+    pub fn clear(&mut self) -> Vec<Message> {
+        let messages = self.messages.drain(..).collect::<Vec<_>>();
+        self.redraw_requested = false;
+        messages
     }
 }

@@ -1,4 +1,6 @@
-use self::{element::Element, runner::Runner, stream::Source, task::Task};
+use crate::subscription::Subscription;
+
+use self::{element::Element, runner::Runner, task::Task};
 use ratatui::{Terminal, backend};
 use std::io;
 
@@ -8,6 +10,7 @@ pub mod element;
 mod runner;
 pub mod runtime;
 pub mod stream;
+pub mod subscription;
 pub mod task;
 mod terminal;
 
@@ -42,7 +45,7 @@ pub trait Application {
         Self: Sized;
     fn view(&self) -> impl Element<Self::Message>;
     fn update(&mut self, message: Self::Message) -> Option<Task<Self::Message>>;
-    fn subscription(&self) -> Vec<Source<Self::Message>> {
+    fn subscription(&self) -> Vec<Subscription<Self::Message>> {
         vec![]
     }
 }
