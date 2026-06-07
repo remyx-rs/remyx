@@ -5,7 +5,7 @@ resolver = "3"
 [package]
 name = "remyx"
 description = "A framework for building TUIs on top of Ratatui"
-version = "0.1.0"
+version = "0.1.0-beta"
 authors = ["Manuel Garcia de la Vega Hoyo <manuelgdlvh@gmail.com>"]
 edition = "2024"
 license = "MIT"
