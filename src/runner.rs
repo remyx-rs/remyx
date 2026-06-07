@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use ratatui::{Terminal, backend};
-use std::{io, marker::PhantomData};
+use std::io;
 
 use crate::{
     element::{Element, Tree},
@@ -9,7 +9,7 @@ use crate::{
     subscription, task, terminal,
 };
 
-pub struct Runner<Application, Runtime, Backend>
+pub struct Runner<'a, Application, Runtime, Backend>
 where
     Application: crate::Application,
     Runtime: runtime::Runtime,
@@ -18,26 +18,24 @@ where
     terminal: Terminal<Backend>,
     app: Application,
     tree: Tree,
-    shell: Shell<Application::Message>,
     tasks: task::Pending<Runtime, Application::Message>,
     subscriptions: subscription::Set<Application::Message>,
     terminal_events: LocalBoxFusedStream<io::Result<crossterm::event::Event>>,
-    _rt_marker: PhantomData<Runtime>,
+    rt: &'a Runtime,
 }
 
-impl<Application, Runtime, Backend> Runner<Application, Runtime, Backend>
+impl<'a, Application, Runtime, Backend> Runner<'a, Application, Runtime, Backend>
 where
     Application: crate::Application,
     Runtime: runtime::Runtime,
     Backend: backend::Backend,
 {
-    pub fn new(terminal: Terminal<Backend>) -> io::Result<Self> {
-        let (app, task) = Application::init();
+    pub fn new(terminal: Terminal<Backend>, rt: &'a Runtime) -> io::Result<Self> {
+        let (app, task) = Application::init::<Runtime>();
         let tree = Tree::init(&app.view());
-        let shell = Shell::new();
         let tasks = task::Pending::new();
         if let Some(task) = task {
-            let task = Runtime::spawn(task).into_future();
+            let task = rt.spawn(task).into_future();
             tasks.register(task);
         }
         let subscriptions = subscription::Set::new();
@@ -46,11 +44,10 @@ where
             terminal,
             app,
             tree,
-            shell,
             tasks,
             subscriptions,
             terminal_events: terminal::events(),
-            _rt_marker: PhantomData,
+            rt,
         })
     }
 
@@ -90,23 +87,22 @@ where
     }
 
     fn update(&mut self, msg: Application::Message) {
-        if let Some(task) = self.app.update(msg) {
-            let task = Runtime::spawn(task).into_future();
+        if let Some(task) = self.app.update::<Runtime>(msg) {
+            let task = self.rt.spawn(task).into_future();
             self.tasks.register(task);
         }
     }
 
     fn handle_terminal_event(&mut self, event: crossterm::event::Event) -> bool {
         let area = self.terminal.get_frame().area();
-        self.app
-            .view()
-            .update(&self.tree, area, event, &mut self.shell);
+        let mut shell = Shell::new();
+        self.app.view().update(&self.tree, area, event, &mut shell);
 
-        if !self.shell.should_redraw() {
+        if !shell.should_redraw() {
             return false;
         }
 
-        for msg in self.shell.clear() {
+        for msg in shell.clear() {
             self.update(msg);
         }
 
@@ -116,7 +112,7 @@ where
     fn redraw(&mut self) {
         let view = self.app.view();
         self.tree.diff(&view);
-        self.subscriptions.diff(self.app.subscription());
+        self.subscriptions.diff(self.app.subscription::<Runtime>());
 
         let _ = self.terminal.draw(|frame| {
             view.draw(&self.tree, frame.area(), frame.buffer_mut());

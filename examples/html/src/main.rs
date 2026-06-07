@@ -1,5 +1,4 @@
 use lol_html::{HtmlRewriter, Settings, element};
-use remyx::Application;
 use remyx::element::{Element, container::Container, list::PickList};
 use remyx::ratatui::crossterm;
 use remyx::ratatui::crossterm::{
@@ -15,6 +14,7 @@ use remyx::ratatui::{
 };
 use remyx::runtime::tokio::Tokio;
 use remyx::task::Task;
+use remyx::{Application, runtime};
 use std::io;
 
 fn main() -> io::Result<()> {
@@ -46,7 +46,7 @@ pub enum Message {
 impl Application for App {
     type Message = Message;
 
-    fn init() -> (Self, Option<Task<Message>>) {
+    fn init<Runtime: runtime::Runtime>() -> (Self, Option<Task<Message>>) {
         let self_ = Self {
             html_page: String::new(),
         };
@@ -88,7 +88,10 @@ impl Application for App {
         )
     }
 
-    fn update(&mut self, message: Self::Message) -> Option<Task<Self::Message>> {
+    fn update<Runtime: runtime::Runtime>(
+        &mut self,
+        message: Self::Message,
+    ) -> Option<Task<Self::Message>> {
         match message {
             Message::LinkChanged(link) => {
                 let task = match link {

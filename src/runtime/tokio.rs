@@ -46,7 +46,7 @@ impl Runtime for Tokio {
     type Time = TokioTime;
 
     fn new(threads: usize) -> Self {
-        if threads > 1 {
+        if threads >= 1 {
             Tokio::MultiThreaded {
                 rt: tokio::runtime::Builder::new_multi_thread()
                     .enable_all()
@@ -63,12 +63,15 @@ impl Runtime for Tokio {
         }
     }
 
-    fn spawn<F>(fut: F) -> Self::JoinHandle<F::Output>
+    fn spawn<F>(&self, fut: F) -> Self::JoinHandle<F::Output>
     where
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        tokio::spawn(fut)
+        match self {
+            Tokio::SingleThreaded { rt } => rt.spawn_local(fut),
+            Tokio::MultiThreaded { rt } => rt.spawn(fut),
+        }
     }
 
     fn block_on<Fut>(&self, fut: Fut) -> Fut::Output
@@ -79,13 +82,5 @@ impl Runtime for Tokio {
             Tokio::SingleThreaded { rt } => rt.block_on(fut),
             Tokio::MultiThreaded { rt } => rt.block_on(fut),
         }
-    }
-
-    fn spawn_local<F>(fut: F) -> Self::JoinHandle<F::Output>
-    where
-        F: Future + 'static,
-        F::Output: Send + 'static,
-    {
-        tokio::task::spawn_local(fut)
     }
 }
