@@ -9,15 +9,15 @@ use remyx::runtime::{
     time::Time,
 };
 
-pub async fn listener_bind_succeeds_on_localhost<R: Runtime>() {
+pub async fn listener_bind_succeeds_on_localhost<R: Runtime>(_rt: &R) {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080);
     let listener = R::Tcp::listener(addr).await;
     assert!(listener.is_ok());
 }
 
-pub async fn stream_connect_succeeds_to_bound_listener<R: Runtime>() {
+pub async fn stream_connect_succeeds_to_bound_listener<R: Runtime>(rt: &R) {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8081);
-    R::spawn_local(async move {
+    rt.spawn(async move {
         let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8081);
         let listener = R::Tcp::listener(addr).await.unwrap();
 
@@ -28,9 +28,9 @@ pub async fn stream_connect_succeeds_to_bound_listener<R: Runtime>() {
     assert!(stream.is_ok());
 }
 
-pub async fn stream_read_write_round_trip_succeeds<R: Runtime>() {
+pub async fn stream_read_write_round_trip_succeeds<R: Runtime>(rt: &R) {
     let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8082);
-    R::spawn_local(async move {
+    rt.spawn(async move {
         let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8082);
         let listener = R::Tcp::listener(addr).await.unwrap();
         while let Ok((stream, _)) = listener.accept().await {

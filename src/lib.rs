@@ -20,12 +20,13 @@ where
     Application: self::Application,
     Backend: backend::Backend,
 {
-    let rt = Runtime::new(1);
-    with_runtime::<Application, Runtime, Backend>(rt, terminal)
+    let rt = Runtime::new(0);
+    let runner = Runner::<Application, Runtime, Backend>::new(terminal, &rt)?;
+    rt.block_on(runner.run())
 }
 
-pub fn with_runtime<Application, Runtime, Backend>(
-    runtime: Runtime,
+pub fn run_with<Application, Runtime, Backend>(
+    threads: usize,
     terminal: Terminal<Backend>,
 ) -> io::Result<()>
 where
@@ -33,19 +34,24 @@ where
     Application: self::Application,
     Backend: backend::Backend,
 {
-    let runner = Runner::<Application, Runtime, Backend>::new(terminal)?;
-    runtime.block_on(runner.run())
+    let rt = Runtime::new(0);
+    let bg_rt = Runtime::new(threads.max(1));
+    let runner = Runner::<Application, Runtime, Backend>::new(terminal, &bg_rt)?;
+    rt.block_on(runner.run())
 }
 
 pub trait Application {
     type Message: Send + 'static;
 
-    fn init() -> (Self, Option<Task<Self::Message>>)
+    fn init<Runtime: runtime::Runtime>() -> (Self, Option<Task<Self::Message>>)
     where
         Self: Sized;
     fn view(&self) -> impl Element<Self::Message>;
-    fn update(&mut self, message: Self::Message) -> Option<Task<Self::Message>>;
-    fn subscription(&self) -> Vec<Subscription<Self::Message>> {
+    fn update<Runtime: runtime::Runtime>(
+        &mut self,
+        message: Self::Message,
+    ) -> Option<Task<Self::Message>>;
+    fn subscription<Runtime: runtime::Runtime>(&self) -> Vec<Subscription<Self::Message>> {
         vec![]
     }
 }

@@ -11,12 +11,15 @@ pub trait Tcp {
     type Listener: Listener<Self::Stream>;
     type Stream: Stream;
 
-    fn stream(addr: impl Into<SocketAddr>) -> impl Future<Output = io::Result<Self::Stream>>;
-    fn listener(addr: impl Into<SocketAddr>) -> impl Future<Output = io::Result<Self::Listener>>;
+    fn stream(addr: impl Into<SocketAddr>)
+    -> impl Future<Output = io::Result<Self::Stream>> + Send;
+    fn listener(
+        addr: impl Into<SocketAddr>,
+    ) -> impl Future<Output = io::Result<Self::Listener>> + Send;
 }
 
-pub trait Listener<S: Stream> {
-    fn accept(&self) -> impl Future<Output = io::Result<(S, SocketAddr)>>;
+pub trait Listener<S: Stream>: Send {
+    fn accept(&self) -> impl Future<Output = io::Result<(S, SocketAddr)>> + Send;
 }
 
 pub trait Stream: Read + Write + State {
@@ -26,12 +29,18 @@ pub trait Stream: Read + Write + State {
     fn split(self) -> (Self::Read, Self::Write);
 }
 
-pub trait Read: State {
-    fn read<'a>(&'a mut self, buf: &'a mut [u8]) -> impl Future<Output = io::Result<usize>> + 'a;
+pub trait Read: State + Send {
+    fn read<'a>(
+        &'a mut self,
+        buf: &'a mut [u8],
+    ) -> impl Future<Output = io::Result<usize>> + Send + 'a;
 }
 
-pub trait Write: State {
-    fn write_all<'a>(&'a mut self, buf: &'a [u8]) -> impl Future<Output = io::Result<()>> + 'a;
+pub trait Write: State + Send {
+    fn write_all<'a>(
+        &'a mut self,
+        buf: &'a [u8],
+    ) -> impl Future<Output = io::Result<()>> + Send + 'a;
 }
 
 pub trait State {

@@ -9,19 +9,8 @@ macro_rules! test {
     ($runtime:ty, $threads:literal, $module:ident :: $test:ident) => {
         #[test]
         fn $test() {
-            let runtime = <$runtime as remyx::runtime::Runtime>::new($threads);
-            remyx::runtime::Runtime::block_on(&runtime, $crate::$module::$test::<$runtime>());
-        }
-    };
-}
-
-macro_rules! test_panic {
-    ($runtime:ty, $threads:literal, $module:ident :: $test:ident) => {
-        #[test]
-        #[should_panic]
-        fn $test() {
-            let runtime = <$runtime as remyx::runtime::Runtime>::new($threads);
-            remyx::runtime::Runtime::block_on(&runtime, $crate::$module::$test::<$runtime>());
+            let rt = <$runtime as remyx::runtime::Runtime>::new($threads);
+            remyx::runtime::Runtime::block_on(&rt, $crate::$module::$test::<$runtime>(&rt));
         }
     };
 }
@@ -37,27 +26,7 @@ macro_rules! test_suite {
                     1,
                     runtime::block_on_returns_completed_future_value
                 );
-                test!($runtime, 1, runtime::defer_spawn_returns_joined_task_result);
-                test!(
-                    $runtime,
-                    1,
-                    runtime::defer_join_returns_deferred_future_output
-                );
-                test!(
-                    $runtime,
-                    1,
-                    runtime::defer_spawn_after_runtime_dropped_returns_disconnected
-                );
-                test_panic!(
-                    $runtime,
-                    2,
-                    runtime::spawn_local_panics_on_multi_threaded_runtime
-                );
-                test!(
-                    $runtime,
-                    1,
-                    runtime::spawn_local_returns_result_on_single_threaded_runtime
-                );
+                test!($runtime, 1, runtime::spawn_returns_result);
             }
 
             mod tcp {
