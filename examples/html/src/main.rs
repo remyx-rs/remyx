@@ -1,24 +1,23 @@
-use crossterm::{
+use lol_html::{HtmlRewriter, Settings, element};
+use remyx::Application;
+use remyx::element::{Element, container::Container, list::PickList};
+use remyx::ratatui::crossterm;
+use remyx::ratatui::crossterm::{
     event::{EnableBracketedPaste, EnableFocusChange, EnableMouseCapture},
     terminal::{EnterAlternateScreen, enable_raw_mode},
 };
-use lol_html::{HtmlRewriter, Settings, element};
-use ratatui::{
+use remyx::ratatui::{
     Terminal,
     layout::{Constraint, Layout},
     prelude::CrosstermBackend,
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, ListItem, Paragraph},
 };
+use remyx::runtime::tokio::Tokio;
 use remyx::task::Task;
-use remyx::{
-    element::{Element, container::Container, list::PickList},
-    runner::Application,
-};
 use std::io;
 
-#[tokio::main]
-async fn main() -> io::Result<()> {
+fn main() -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
 
@@ -32,28 +31,11 @@ async fn main() -> io::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let terminal = Terminal::new(backend)?;
 
-    remyx::run::<App, _>(terminal).await
+    remyx::run::<App, Tokio, _>(terminal)
 }
 
 pub struct App {
     html_page: String,
-}
-
-#[derive(Copy, Clone)]
-pub enum Link {
-    Rust,
-    C,
-    Java,
-}
-
-impl Into<ListItem<'static>> for Link {
-    fn into(self) -> ListItem<'static> {
-        match self {
-            Link::Rust => ListItem::new("Rust"),
-            Link::C => ListItem::new("C"),
-            Link::Java => ListItem::new("Java"),
-        }
-    }
 }
 
 pub enum Message {
@@ -71,7 +53,7 @@ impl Application for App {
         (self_, None)
     }
 
-    fn view(&self) -> impl Element<Self::Message> + use<> {
+    fn view(&self) -> impl Element<Self::Message> {
         Container::layout(Layout::vertical(vec![
             Constraint::Percentage(20),
             Constraint::Percentage(80),
@@ -130,6 +112,23 @@ impl Application for App {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum Link {
+    Rust,
+    C,
+    Java,
+}
+
+impl Into<ListItem<'static>> for Link {
+    fn into(self) -> ListItem<'static> {
+        match self {
+            Link::Rust => ListItem::new("Rust"),
+            Link::C => ListItem::new("C"),
+            Link::Java => ListItem::new("Java"),
+        }
+    }
+}
+
 fn html_page(url: &'static str) -> Task<Message> {
     Task::new(async move {
         let client = reqwest::Client::builder()
@@ -148,51 +147,11 @@ fn html_page(url: &'static str) -> Task<Message> {
                         el.remove();
                         Ok(())
                     }),
-                    element!("meta", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
-                    element!("link", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
                     element!("style", |el| {
                         el.remove();
                         Ok(())
                     }),
-                    element!("noscript", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
-                    element!("svg", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
                     element!("img", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
-                    element!("header", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
-                    element!("footer", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
-                    element!("nav", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
-                    element!(".reference", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
-                    element!(".navbox", |el| {
-                        el.remove();
-                        Ok(())
-                    }),
-                    element!(".infobox", |el| {
                         el.remove();
                         Ok(())
                     }),

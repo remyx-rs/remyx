@@ -94,13 +94,17 @@ impl Tree {
 pub trait Element<Message> {
     fn draw(&self, tree: &Tree, area: Rect, buffer: &mut Buffer);
 
-    fn update(&self, tree: &Tree, area: Rect, event: Event, shell: &mut Shell<'_, Message>);
+    fn update(&self, _tree: &Tree, _area: Rect, _event: Event, _shell: &mut Shell<Message>) {}
 
     fn id(&self) -> TypeId;
 
-    fn state(&self) -> Option<GenericState>;
+    fn state(&self) -> Option<GenericState> {
+        None
+    }
 
-    fn children(&self) -> &[Box<dyn Element<Message>>];
+    fn children(&self) -> &[Box<dyn Element<Message>>] {
+        &[]
+    }
 }
 
 macro_rules! impl_stateless_element {
@@ -112,23 +116,6 @@ macro_rules! impl_stateless_element {
 
             fn id(&self) -> TypeId {
                 TypeId::of::<$ty>()
-            }
-
-            fn state(&self) -> Option<GenericState> {
-                None
-            }
-
-            fn update(
-                &self,
-                _tree: &Tree,
-                _area: Rect,
-                _event: Event,
-                _shell: &mut Shell<'_, Message>,
-            ) {
-            }
-
-            fn children(&self) -> &[Box<dyn Element<Message>>] {
-                &[]
             }
         }
     };
@@ -156,16 +143,6 @@ where
     fn id(&self) -> TypeId {
         TypeId::of::<Canvas<'static, fn(&mut Context<'_>)>>()
     }
-
-    fn state(&self) -> Option<GenericState> {
-        None
-    }
-
-    fn children(&self) -> &[Box<dyn Element<Message>>] {
-        &[]
-    }
-
-    fn update(&self, _tree: &Tree, _area: Rect, _event: Event, _shell: &mut Shell<'_, Message>) {}
 }
 
 // text primitives

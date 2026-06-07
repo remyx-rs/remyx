@@ -110,7 +110,7 @@ where
         tree: &Tree,
         area: Rect,
         event: crossterm::event::Event,
-        shell: &mut Shell<'_, Message>,
+        shell: &mut Shell<Message>,
     ) {
         let items_area = if let Some(block) = self.block.as_ref() {
             block.inner(area)
