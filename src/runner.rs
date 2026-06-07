@@ -1,12 +1,12 @@
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
 use ratatui::{Terminal, backend};
 use std::{io, marker::PhantomData};
 
 use crate::{
     element::{Element, Tree},
     runtime::{self, JoinHandle},
-    stream::{self, LocalBoxFusedStream, Source},
-    terminal,
+    stream::{self, LocalBoxFusedStream},
+    task, terminal,
 };
 
 pub struct Runner<Application, Runtime, Backend>
@@ -18,6 +18,7 @@ where
     terminal: Terminal<Backend>,
     app: Application,
     tree: Tree,
+    tasks: task::Pending<Runtime, Application::Message>,
     subscription_events: stream::Stream<Application::Message>,
     terminal_events: LocalBoxFusedStream<io::Result<crossterm::event::Event>>,
     messages: Vec<Application::Message>,
@@ -33,20 +34,18 @@ where
     pub fn new(terminal: Terminal<Backend>) -> io::Result<Self> {
         let (app, task) = Application::init();
         let tree = Tree::init(&app.view());
-
-        let mut subscriptions = app.subscription();
+        let subscriptions = app.subscription();
+        let tasks = task::Pending::new();
         if let Some(task) = task {
-            let fut = Runtime::spawn(task).into_future().map(|res| match res {
-                Ok(val) => val,
-                Err(_) => panic!(),
-            });
-            subscriptions.push(Source::future(fut));
+            let task = Runtime::spawn(task).into_future();
+            tasks.register(task);
         }
 
         Ok(Self {
             terminal,
             app,
             tree,
+            tasks,
             subscription_events: stream::Stream::init(subscriptions),
             terminal_events: terminal::events(),
             messages: Vec::new(),
@@ -63,6 +62,17 @@ where
                         self.update(msg);
                     }
                     None => break,
+                },
+                task = self.tasks.next() => match task {
+                    Some(Ok(msg)) => {
+                        self.update(msg);
+                    }
+                    Some(Err(_)) => {
+
+                    }
+                    None => {
+
+                    }
                 },
                 event = self.terminal_events.next() => match event {
                     Some(Ok(event)) => {
@@ -81,11 +91,8 @@ where
 
     fn update(&mut self, msg: Application::Message) {
         if let Some(task) = self.app.update(msg) {
-            let fut = Runtime::spawn(task).into_future().map(|res| match res {
-                Ok(val) => val,
-                Err(_) => panic!(),
-            });
-            self.subscription_events.add(Source::future(fut));
+            let task = Runtime::spawn(task).into_future();
+            self.tasks.register(task);
         }
     }
 

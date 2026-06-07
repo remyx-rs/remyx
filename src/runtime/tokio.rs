@@ -1,4 +1,3 @@
-use futures::TryFutureExt;
 use tokio::runtime::LocalOptions;
 
 use crate::runtime::{
@@ -25,8 +24,11 @@ impl<T: Send> JoinHandle<T> for tokio::task::JoinHandle<T> {
         self.is_finished()
     }
 
-    fn into_future(self) -> impl Future<Output = Result<T, JoinError>> {
-        self.map_err(|err| {
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<T, JoinError>> {
+        std::future::Future::poll(self, cx).map_err(|err| {
             if err.is_panic() {
                 JoinError::Panicked
             } else {

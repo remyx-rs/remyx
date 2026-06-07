@@ -1,6 +1,5 @@
 use futures::{StreamExt, stream::LocalBoxStream};
 use std::hash::{DefaultHasher, Hasher};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::{hash::Hash, pin::Pin, task::Poll};
 
 pub type LocalBoxFusedStream<O> = Pin<Box<dyn futures::stream::FusedStream<Item = O>>>;
@@ -67,14 +66,11 @@ pub struct Source<Message> {
 }
 
 impl<Message: 'static> Source<Message> {
-    const STATIC_MASK: u64 = 1;
-    const DYNAMIC_MASK: u64 = 0o1;
-
     pub fn new<S>(f: fn() -> S) -> Self
     where
         S: futures::Stream<Item = Message> + 'static,
     {
-        let id: u64 = ((f as usize as u64) << 1) & Self::STATIC_MASK;
+        let id: u64 = f as usize as u64;
         let stream = futures::stream::once(async move { f() }).flatten();
         Self {
             id,
@@ -90,25 +86,11 @@ impl<Message: 'static> Source<Message> {
         let mut hasher = DefaultHasher::new();
         data.hash(&mut hasher);
 
-        let id: u64 = ((f as usize as u64 & hasher.finish()) << 1) & Self::STATIC_MASK;
+        let id: u64 = f as usize as u64 & hasher.finish();
         let stream = futures::stream::once(async move { f(&data) }).flatten();
-
         Self {
             id,
             stream: Box::pin(stream),
-        }
-    }
-
-    pub fn future<F>(fut: F) -> Self
-    where
-        F: Future<Output = Message> + 'static,
-    {
-        static ID: AtomicU64 = AtomicU64::new(0);
-
-        let id = (ID.fetch_add(1, Ordering::SeqCst) << 1) | Self::DYNAMIC_MASK;
-        Self {
-            id,
-            stream: Box::pin(futures::stream::once(fut)),
         }
     }
 }
