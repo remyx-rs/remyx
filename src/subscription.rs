@@ -15,6 +15,12 @@ pub struct Active<Message> {
     sources: SelectAll<Source<Message>>,
 }
 
+impl<Message: 'static> Default for Active<Message> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Message: 'static> Active<Message> {
     pub fn new() -> Self {
         Self {
