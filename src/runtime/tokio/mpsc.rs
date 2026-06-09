@@ -22,6 +22,13 @@ impl<T: Send> Sender<T> for tokio::sync::mpsc::Sender<T> {
             Err(SendError(val)) => Err(TrySendError::Closed(val)),
         })
     }
+
+    fn try_send(&self, value: T) -> Result<(), TrySendError<T>> {
+        self.try_send(value).map_err(|err| match err {
+            tokio::sync::mpsc::error::TrySendError::Full(val) => TrySendError::Full(val),
+            tokio::sync::mpsc::error::TrySendError::Closed(val) => TrySendError::Closed(val),
+        })
+    }
 }
 
 impl<T: Send> Receiver<T> for tokio::sync::mpsc::Receiver<T> {

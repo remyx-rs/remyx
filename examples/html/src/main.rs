@@ -1,9 +1,11 @@
 use lol_html::{HtmlRewriter, Settings, element};
 use remyx::element::{Element, container::Container, list::PickList};
-use remyx::ratatui::crossterm;
+use remyx::ratatui::crossterm::event::DisableMouseCapture;
+use remyx::ratatui::crossterm::terminal::disable_raw_mode;
+use remyx::ratatui::crossterm::{self, execute};
 use remyx::ratatui::crossterm::{
     event::{EnableBracketedPaste, EnableFocusChange, EnableMouseCapture},
-    terminal::{EnterAlternateScreen, enable_raw_mode},
+    terminal::enable_raw_mode,
 };
 use remyx::ratatui::{
     Terminal,
@@ -13,6 +15,7 @@ use remyx::ratatui::{
     widgets::{Block, Borders, ListItem, Paragraph},
 };
 use remyx::runtime::tokio::Tokio;
+use remyx::subscription::Subscription;
 use remyx::task::Task;
 use remyx::{Application, runtime};
 use std::io;
@@ -20,27 +23,30 @@ use std::io;
 fn main() -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-
     crossterm::execute!(
         stdout,
-        EnterAlternateScreen,
         EnableMouseCapture,
         EnableFocusChange,
         EnableBracketedPaste,
     )?;
+
     let backend = CrosstermBackend::new(stdout);
     let terminal = Terminal::new(backend)?;
+    remyx::run::<App, Tokio, _>(terminal)?;
 
-    remyx::run::<App, Tokio, _>(terminal)
+    execute!(std::io::stdout(), DisableMouseCapture)?;
+    disable_raw_mode()
 }
 
 pub struct App {
     html_page: String,
+    exit: bool,
 }
 
 pub enum Message {
     LinkChanged(Link),
     ContentChanged(String),
+    Exit,
 }
 
 impl Application for App {
@@ -49,6 +55,7 @@ impl Application for App {
     fn init<Runtime: runtime::Runtime>() -> (Self, Option<Task<Message>>) {
         let self_ = Self {
             html_page: String::new(),
+            exit: false,
         };
         (self_, None)
     }
@@ -111,7 +118,27 @@ impl Application for App {
                 self.html_page = content;
                 None
             }
+            Message::Exit => {
+                self.exit = true;
+                None
+            }
         }
+    }
+
+    fn subscription<Runtime: runtime::Runtime>(&self) -> Vec<Subscription<Runtime, Self::Message>> {
+        let exit = Subscription::key(|key| {
+            if key.code.eq(&crossterm::event::KeyCode::Esc) {
+                Some(Message::Exit)
+            } else {
+                None
+            }
+        });
+
+        vec![exit]
+    }
+
+    fn exit(&self) -> bool {
+        self.exit
     }
 }
 

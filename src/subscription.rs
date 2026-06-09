@@ -1,57 +1,71 @@
+use crate::terminal::EventResult;
+use crate::{runtime, stream};
+use crossterm::event::{self, KeyEvent};
 use futures::Stream;
+use futures::stream::LocalBoxStream;
+use futures::stream::StreamExt;
 use futures::stream::{FusedStream, SelectAll};
-use futures::{StreamExt, stream::LocalBoxStream};
+use std::any::TypeId;
 use std::hash::Hash;
 use std::hash::{DefaultHasher, Hasher};
-use std::mem;
 use std::pin::Pin;
+use std::{future, mem};
 
-pub struct Set<Message> {
-    subscriptions: SelectAll<Subscription<Message>>,
+pub struct Active<Message> {
+    sources: SelectAll<Source<Message>>,
 }
 
-impl<Message> Default for Set<Message> {
+impl<Message: 'static> Default for Active<Message> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<Message> Set<Message> {
+impl<Message: 'static> Active<Message> {
     pub fn new() -> Self {
         Self {
-            subscriptions: SelectAll::new(),
+            sources: SelectAll::new(),
         }
     }
 
-    fn add(&mut self, subscription: Subscription<Message>) {
+    fn add<Runtime: runtime::Runtime>(
+        &mut self,
+        stream: &mut stream::Tee<Runtime, EventResult>,
+        subscription: Subscription<Runtime, Message>,
+    ) {
         let registered = self
-            .subscriptions
+            .sources
             .iter()
             .any(|current| current.id == subscription.id);
 
         if !registered {
-            self.subscriptions.push(subscription);
+            let source = subscription.build(stream);
+            self.sources.push(source);
         }
     }
 
-    pub fn diff(&mut self, subscriptions: Vec<Subscription<Message>>) {
-        for subscription in mem::take(&mut self.subscriptions) {
+    pub fn diff<Runtime: runtime::Runtime>(
+        &mut self,
+        stream: &mut stream::Tee<Runtime, EventResult>,
+        subscriptions: Vec<Subscription<Runtime, Message>>,
+    ) {
+        for source in mem::take(&mut self.sources) {
             let was_previously = subscriptions
                 .iter()
-                .any(|incoming| incoming.id == subscription.id);
+                .any(|incoming| incoming.id == source.id);
 
             if was_previously {
-                self.subscriptions.push(subscription);
+                self.sources.push(source);
             }
         }
 
         for subscription in subscriptions {
-            self.add(subscription);
+            self.add(stream, subscription);
         }
     }
 }
 
-impl<Message> Stream for Set<Message> {
+impl<Message> Stream for Active<Message> {
     type Item = Message;
 
     fn poll_next(
@@ -59,35 +73,41 @@ impl<Message> Stream for Set<Message> {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         let this = self.get_mut();
-        if this.subscriptions.is_empty() {
+        if this.sources.is_empty() {
             return std::task::Poll::Pending;
         }
-        Pin::new(&mut this.subscriptions).poll_next(cx)
+        Pin::new(&mut this.sources).poll_next(cx)
     }
 }
 
-impl<Message> FusedStream for Set<Message> {
+impl<Message> FusedStream for Active<Message> {
     fn is_terminated(&self) -> bool {
         false
     }
 }
 
-pub struct Subscription<Message> {
+type StreamFn<Runtime, Message> =
+    Box<dyn FnOnce(&mut stream::Tee<Runtime, EventResult>) -> LocalBoxStream<'static, Message>>;
+
+pub struct Subscription<Runtime, Message>
+where
+    Runtime: runtime::Runtime,
+{
     id: u64,
-    stream: LocalBoxStream<'static, Message>,
+    builder: StreamFn<Runtime, Message>,
 }
 
-impl<Message: 'static> Subscription<Message> {
+impl<Runtime, Message: 'static> Subscription<Runtime, Message>
+where
+    Runtime: runtime::Runtime,
+{
     pub fn new<Stream>(f: fn() -> Stream) -> Self
     where
         Stream: futures::Stream<Item = Message> + 'static,
     {
         let id: u64 = f as usize as u64;
-        let stream = futures::stream::once(async move { f() }).flatten();
-        Self {
-            id,
-            stream: Box::pin(stream),
-        }
+        let builder = Box::new(move |_: &mut stream::Tee<Runtime, EventResult>| f().boxed_local());
+        Self { id, builder }
     }
 
     pub fn with<I, Stream>(data: I, f: fn(&I) -> Stream) -> Self
@@ -99,15 +119,56 @@ impl<Message: 'static> Subscription<Message> {
         data.hash(&mut hasher);
 
         let id: u64 = f as usize as u64 & hasher.finish();
-        let stream = futures::stream::once(async move { f(&data) }).flatten();
-        Self {
-            id,
-            stream: Box::pin(stream),
-        }
+        let builder =
+            Box::new(move |_: &mut stream::Tee<Runtime, EventResult>| f(&data).boxed_local());
+        Self { id, builder }
+    }
+
+    pub fn key<F>(f: F) -> Self
+    where
+        F: Fn(KeyEvent) -> Option<Message> + 'static,
+    {
+        struct KeyListener;
+        let mut hasher = DefaultHasher::new();
+        TypeId::of::<KeyListener>().hash(&mut hasher);
+        let id = hasher.finish();
+
+        let builder = Box::new(move |stream: &mut stream::Tee<Runtime, EventResult>| {
+            stream
+                .fork()
+                .filter_map(move |res| {
+                    future::ready(match res {
+                        Ok(val) => match val {
+                            event::Event::Key(key_event) => f(key_event),
+                            _ => None,
+                        },
+                        Err(_) => None,
+                    })
+                })
+                .boxed_local()
+        });
+
+        Self { id, builder }
+    }
+
+    pub fn build(self, stream: &mut stream::Tee<Runtime, EventResult>) -> Source<Message> {
+        let stream = (self.builder)(stream);
+        Source::new(self.id, stream)
     }
 }
 
-impl<Message> Stream for Subscription<Message> {
+pub struct Source<Message> {
+    id: u64,
+    stream: LocalBoxStream<'static, Message>,
+}
+
+impl<Message> Source<Message> {
+    pub fn new(id: u64, stream: LocalBoxStream<'static, Message>) -> Self {
+        Self { id, stream }
+    }
+}
+
+impl<Message> Stream for Source<Message> {
     type Item = Message;
 
     fn poll_next(

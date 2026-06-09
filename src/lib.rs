@@ -51,7 +51,12 @@ pub trait Application {
         &mut self,
         message: Self::Message,
     ) -> Option<Task<Self::Message>>;
-    fn subscription<Runtime: runtime::Runtime>(&self) -> Vec<Subscription<Self::Message>> {
+
+    fn subscription<Runtime: runtime::Runtime>(&self) -> Vec<Subscription<Runtime, Self::Message>> {
         vec![]
+    }
+
+    fn exit(&self) -> bool {
+        false
     }
 }
