@@ -77,7 +77,7 @@ where
                         }
                     }
                     Some(Err(kind)) =>  {
-                        return Err(io::Error::new(kind, "test"));
+                        return Err(io::Error::new(kind, kind.to_string()));
                     },
                     None => break,
                 },

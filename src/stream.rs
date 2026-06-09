@@ -63,11 +63,10 @@ where
             let subscriber = &this.subscribers[index];
 
             match subscriber.try_send(item.clone()) {
-                Ok(_) => index += 1,
                 Err(TrySendError::Closed(_)) => {
                     this.subscribers.remove(index);
                 }
-                Err(TrySendError::Full(_)) => {
+                Ok(_) | Err(TrySendError::Full(_)) => {
                     index += 1;
                 }
             }
@@ -104,7 +103,7 @@ mod test {
     };
 
     #[test]
-    pub fn test() {
+    pub fn tee_stream_test_original_and_fork_receive_produced_messages() {
         Tokio::new(0).block_on(async move {
             let stream = futures::stream::unfold(100, |val| async move {
                 TokioTime::sleep(Duration::from_millis(val)).await;
