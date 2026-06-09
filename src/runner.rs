@@ -5,8 +5,9 @@ use std::io;
 use crate::{
     element::{Element, Tree},
     runtime::{self, JoinHandle},
-    stream::LocalBoxFusedStream,
-    subscription, task, terminal,
+    stream::{self},
+    subscription, task,
+    terminal::{self, EventResult},
 };
 
 pub struct Runner<'a, Application, Runtime, Backend>
@@ -19,8 +20,8 @@ where
     app: Application,
     tree: Tree,
     tasks: task::Pending<Runtime, Application::Message>,
-    subscriptions: subscription::Set<Application::Message>,
-    terminal_events: LocalBoxFusedStream<io::Result<crossterm::event::Event>>,
+    subscriptions: subscription::Active<Application::Message>,
+    terminal_events: stream::Tee<Runtime, EventResult>,
     rt: &'a Runtime,
 }
 
@@ -38,7 +39,7 @@ where
             let task = rt.spawn(task).into_future();
             tasks.register(task);
         }
-        let subscriptions = subscription::Set::new();
+        let subscriptions = subscription::Active::new();
 
         Ok(Self {
             terminal,
@@ -75,12 +76,17 @@ where
                             continue;
                         }
                     }
-                    Some(Err(e)) => return Err(e),
+                    Some(Err(kind)) =>  {
+                        return Err(io::Error::new(kind, "test"));
+                    },
                     None => break,
                 },
             }
 
             self.redraw();
+            if self.app.exit() {
+                break;
+            }
         }
 
         Ok(())
@@ -112,7 +118,10 @@ where
     fn redraw(&mut self) {
         let view = self.app.view();
         self.tree.diff(&view);
-        self.subscriptions.diff(self.app.subscription::<Runtime>());
+        self.subscriptions.diff(
+            &mut self.terminal_events,
+            self.app.subscription::<Runtime>(),
+        );
 
         let _ = self.terminal.draw(|frame| {
             view.draw(&self.tree, frame.area(), frame.buffer_mut());

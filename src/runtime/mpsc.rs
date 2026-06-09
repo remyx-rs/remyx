@@ -68,11 +68,13 @@ impl fmt::Display for TryRecvError {
     }
 }
 
-pub trait Sender<T>: Send
+pub trait Sender<T>: Send + Unpin
 where
     T: Send,
 {
     fn send(&self, value: T) -> impl Future<Output = Result<(), TrySendError<T>>> + Send;
+
+    fn try_send(&self, value: T) -> Result<(), TrySendError<T>>;
 }
 
 pub trait Receiver<T: Send>: Send {

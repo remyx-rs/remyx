@@ -1,8 +1,12 @@
 use std::io;
 
-use crate::stream::LocalBoxFusedStream;
-use futures::StreamExt;
+use crate::{runtime, stream};
+use crossterm::event::{Event, EventStream};
+use futures::{StreamExt, TryStreamExt};
 
-pub fn events() -> LocalBoxFusedStream<io::Result<crossterm::event::Event>> {
-    Box::pin(crossterm::event::EventStream::new().fuse())
+pub type EventResult = Result<Event, io::ErrorKind>;
+
+pub fn events<Runtime: runtime::Runtime>() -> stream::Tee<Runtime, Result<Event, io::ErrorKind>> {
+    let stream = EventStream::new().map_err(|err| err.kind()).boxed();
+    stream::Tee::new(stream)
 }
