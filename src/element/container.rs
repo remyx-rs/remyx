@@ -1,7 +1,7 @@
 use std::any::TypeId;
 
 use crossterm::event::Event;
-use ratatui::{
+use ratatui_core::{
     buffer::Buffer,
     layout::{Layout, Rect},
 };

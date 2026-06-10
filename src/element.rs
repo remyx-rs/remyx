@@ -1,15 +1,13 @@
-use ratatui::buffer::Buffer;
-use ratatui::crossterm::event::Event;
-use ratatui::layout::Rect;
-use ratatui::text::{Span, Text};
-use ratatui::widgets::canvas::{Canvas, Context};
-use ratatui::widgets::{
-    BarChart, Block, Chart, Clear, Gauge, LineGauge, Paragraph, Sparkline, Tabs, Widget,
-};
+use crate::runner::Shell;
+use crossterm::event::Event;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::text::{Span, Text};
+use ratatui_core::widgets::Widget;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::paragraph::Paragraph;
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
-
-use crate::runner::Shell;
 
 pub mod container;
 pub mod list;
@@ -123,27 +121,7 @@ macro_rules! impl_stateless_element {
 
 // base widgets
 impl_stateless_element!(Block<'_>);
-impl_stateless_element!(BarChart<'_>);
-impl_stateless_element!(Chart<'_>);
-impl_stateless_element!(Clear);
-impl_stateless_element!(Gauge<'_>);
-impl_stateless_element!(LineGauge<'_>);
 impl_stateless_element!(Paragraph<'_>);
-impl_stateless_element!(Sparkline<'_>);
-impl_stateless_element!(Tabs<'_>);
-
-impl<'a, Message: 'static, F> Element<Message> for Canvas<'a, F>
-where
-    F: Fn(&mut Context<'_>),
-{
-    fn draw(&self, _tree: &Tree, area: Rect, buffer: &mut Buffer) {
-        self.render(area, buffer);
-    }
-
-    fn id(&self) -> TypeId {
-        TypeId::of::<Canvas<'static, fn(&mut Context<'_>)>>()
-    }
-}
 
 // text primitives
 impl_stateless_element!(Span<'_>);

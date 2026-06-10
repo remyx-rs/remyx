@@ -1,29 +1,28 @@
 use lol_html::{HtmlRewriter, Settings, element};
+use remyx::crossterm::CrosstermBackend;
+use remyx::crossterm::crossterm::event::{
+    DisableMouseCapture, EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, KeyCode,
+};
+use remyx::crossterm::crossterm::execute;
+use remyx::crossterm::crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use remyx::element::{Element, container::Container, list::PickList};
-use remyx::ratatui::crossterm::event::DisableMouseCapture;
-use remyx::ratatui::crossterm::terminal::disable_raw_mode;
-use remyx::ratatui::crossterm::{self, execute};
-use remyx::ratatui::crossterm::{
-    event::{EnableBracketedPaste, EnableFocusChange, EnableMouseCapture},
-    terminal::enable_raw_mode,
-};
-use remyx::ratatui::{
-    Terminal,
-    layout::{Constraint, Layout},
-    prelude::CrosstermBackend,
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, ListItem, Paragraph},
-};
+use remyx::ratatui::layout::{Constraint, Layout};
+use remyx::ratatui::style::{Color, Modifier, Style};
+use remyx::ratatui::terminal::Terminal;
 use remyx::runtime::tokio::Tokio;
 use remyx::subscription::Subscription;
 use remyx::task::Task;
+use remyx::widgets::block::Block;
+use remyx::widgets::borders::Borders;
+use remyx::widgets::list::ListItem;
+use remyx::widgets::paragraph::Paragraph;
 use remyx::{Application, runtime};
 use std::io;
 
 fn main() -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    crossterm::execute!(
+    execute!(
         stdout,
         EnableMouseCapture,
         EnableFocusChange,
@@ -127,7 +126,7 @@ impl Application for App {
 
     fn subscription<Runtime: runtime::Runtime>(&self) -> Vec<Subscription<Runtime, Self::Message>> {
         let exit = Subscription::key(|key| {
-            if key.code.eq(&crossterm::event::KeyCode::Esc) {
+            if key.code.eq(&KeyCode::Esc) {
                 Some(Message::Exit)
             } else {
                 None

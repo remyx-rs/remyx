@@ -1,17 +1,16 @@
 use std::{any::TypeId, cell::RefCell};
 
-use crossterm::event::MouseButton;
-use ratatui::{
-    buffer::Buffer,
-    layout::Rect,
-    style::Style,
-    text::Line,
-    widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState, StatefulWidget},
-};
-
 use crate::{
     element::{Element, GenericState, Tree},
     runner::Shell,
+};
+use crossterm::event::MouseButton;
+use ratatui_core::widgets::StatefulWidget;
+use ratatui_core::{buffer::Buffer, layout::Rect, style::Style, text::Line};
+use ratatui_widgets::{
+    block::Block,
+    list::{List, ListDirection, ListItem, ListState},
+    table::HighlightSpacing,
 };
 
 pub struct PickList<Message, Item>

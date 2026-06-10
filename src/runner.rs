@@ -1,5 +1,5 @@
 use futures::StreamExt;
-use ratatui::{Terminal, backend};
+use ratatui_core::{backend, terminal::Terminal};
 use std::io;
 
 use crate::{
@@ -14,7 +14,7 @@ pub struct Runner<'a, Application, Runtime, Backend>
 where
     Application: crate::Application,
     Runtime: runtime::Runtime,
-    Backend: ratatui::backend::Backend,
+    Backend: backend::Backend,
 {
     terminal: Terminal<Backend>,
     app: Application,

@@ -1,10 +1,11 @@
-use crate::subscription::Subscription;
-
 use self::{element::Element, runner::Runner, task::Task};
-use ratatui::{Terminal, backend};
+use crate::subscription::Subscription;
+use ratatui_core::{backend, terminal::Terminal};
 use std::io;
 
-pub use ratatui;
+pub use ratatui_core as ratatui;
+pub use ratatui_crossterm as crossterm;
+pub use ratatui_widgets as widgets;
 
 pub mod element;
 mod runner;
