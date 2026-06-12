@@ -4,10 +4,10 @@ use crate::{
     element::{Element, GenericState, Tree},
     runner::Shell,
 };
-use crossterm::event::MouseButton;
+use crossterm::event::{Event, MouseButton};
 use ratatui_core::widgets::StatefulWidget;
 use ratatui_core::{buffer::Buffer, layout::Rect};
-use ratatui_widgets::list::{List, ListItem, ListState};
+use ratatui_widgets::list::{List, ListDirection, ListItem, ListState};
 
 impl<Item, Message> Element<Message> for List<'static, Item, Message>
 where
@@ -39,43 +39,61 @@ where
             area
         };
 
-        let is_hovered = |tree: &Tree| tree.with_state(|state: &State| state.hovered);
-        let selection = match event {
-            crossterm::event::Event::Key(key_event) if is_hovered(tree) => match key_event.code {
-                crossterm::event::KeyCode::Up => Some(Selection::Previous),
-                crossterm::event::KeyCode::Down => Some(Selection::Next),
+        if let Event::Mouse(mouse_event) = event {
+            tree.with_state_mut(|state: &mut State| {
+                state.hovered = mouse_event.column >= items_area.x
+                    && mouse_event.column < (items_area.x + items_area.width)
+                    && mouse_event.row >= items_area.y
+                    && mouse_event.row < (items_area.y + items_area.height);
+            });
+        }
+
+        if !tree.with_state(|s: &State| s.hovered) {
+            return;
+        }
+
+        let offset = tree.with_state(|state: &State| state.list.offset());
+        let selection = match self.direction_ref() {
+            ListDirection::TopToBottom => match event {
+                crossterm::event::Event::Key(key_event) => match key_event.code {
+                    crossterm::event::KeyCode::Up => Some(Selection::Previous),
+                    crossterm::event::KeyCode::Down => Some(Selection::Next),
+                    _ => None,
+                },
+                Event::Mouse(mouse_event) => match mouse_event.kind {
+                    crossterm::event::MouseEventKind::Up(mouse_button)
+                        if mouse_button.eq(&MouseButton::Left) =>
+                    {
+                        let item_index = (mouse_event.row - items_area.y) as usize + offset;
+                        (item_index < self.len()).then_some(Selection::Index(item_index))
+                    }
+                    crossterm::event::MouseEventKind::ScrollUp => Some(Selection::Previous),
+                    crossterm::event::MouseEventKind::ScrollDown => Some(Selection::Next),
+                    _ => None,
+                },
                 _ => None,
             },
-            crossterm::event::Event::Mouse(mouse_event) => {
-                tree.with_state_mut(|state: &mut State| {
-                    state.hovered = mouse_event.column >= items_area.x
-                        && mouse_event.column < (items_area.x + items_area.width)
-                        && mouse_event.row >= items_area.y
-                        && mouse_event.row < (items_area.y + items_area.height);
-                });
-
-                if !is_hovered(tree) {
-                    None
-                } else {
-                    match mouse_event.kind {
-                        crossterm::event::MouseEventKind::Up(mouse_button)
-                            if mouse_button.eq(&MouseButton::Left) =>
-                        {
-                            let offset = tree.with_state(|state: &State| state.list.offset());
-                            let item_index = (mouse_event.row - items_area.y) as usize + offset;
-                            if item_index >= self.len() {
-                                None
-                            } else {
-                                Some(Selection::Index(item_index))
-                            }
-                        }
-                        crossterm::event::MouseEventKind::ScrollUp => Some(Selection::Previous),
-                        crossterm::event::MouseEventKind::ScrollDown => Some(Selection::Next),
-                        _ => None,
+            ListDirection::BottomToTop => match event {
+                Event::Key(key_event) => match key_event.code {
+                    crossterm::event::KeyCode::Up => Some(Selection::Next),
+                    crossterm::event::KeyCode::Down => Some(Selection::Previous),
+                    _ => None,
+                },
+                Event::Mouse(mouse_event) => match mouse_event.kind {
+                    crossterm::event::MouseEventKind::Up(mouse_button)
+                        if mouse_button.eq(&MouseButton::Left) =>
+                    {
+                        let item_index = (items_area.y + items_area.height - 1 - mouse_event.row)
+                            as usize
+                            + offset;
+                        (item_index < self.len()).then_some(Selection::Index(item_index))
                     }
-                }
-            }
-            _ => None,
+                    crossterm::event::MouseEventKind::ScrollUp => Some(Selection::Next),
+                    crossterm::event::MouseEventKind::ScrollDown => Some(Selection::Previous),
+                    _ => None,
+                },
+                _ => None,
+            },
         };
 
         if let Some(selection) = selection {
@@ -83,11 +101,10 @@ where
                 match selection {
                     Selection::Previous => state.list.select_previous(),
                     Selection::Next => state.list.select_next(),
-                    Selection::Index(i) => state.list = state.list.with_selected(Some(i)),
+                    Selection::Index(index) => state.list = state.list.with_selected(Some(index)),
                 }
 
                 shell.request_redraw();
-
                 if let Some(f) = self.on_select_ref()
                     && let Some(item_index) = state.list.selected()
                     && let Some(item) = self.items_as_slice().get(item_index)

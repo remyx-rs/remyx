@@ -60,12 +60,12 @@ impl Application for App {
     }
 
     fn view(&self) -> impl Element<Self::Message> {
-        Container::layout(Layout::vertical(vec![
+        Container::layout(Layout::vertical([
             Constraint::Percentage(20),
             Constraint::Percentage(80),
         ]))
         .with(
-            List::new(vec![Link::C, Link::Rust, Link::Java])
+            List::new([Link::C, Link::Java, Link::Rust])
                 .block(
                     Block::default()
                         .title_top("Links")
