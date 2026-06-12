@@ -27,48 +27,25 @@ where
         event: crossterm::event::Event,
         shell: &mut Shell<Message>,
     ) {
+        enum Selection {
+            Previous,
+            Next,
+            Index(usize),
+        }
+
         let items_area = if let Some(block) = self.block_as_ref() {
             block.inner(area)
         } else {
             area
         };
 
-        match event {
-            crossterm::event::Event::Key(key_event)
-                if tree.with_state(|state: &State| state.hovered) =>
-            {
-                match key_event.code {
-                    crossterm::event::KeyCode::Up => {
-                        tree.with_state_mut(|state: &mut State| {
-                            state.list.select_previous();
-
-                            if let Some(f) = self.on_select_ref()
-                                && let Some(item_index) = state.list.selected()
-                                && let Some(item) = self.items_as_slice().get(item_index)
-                            {
-                                shell.publish(f(item));
-                            }
-                        });
-
-                        shell.request_redraw();
-                    }
-                    crossterm::event::KeyCode::Down => {
-                        tree.with_state_mut(|state: &mut State| {
-                            state.list.select_next();
-
-                            if let Some(f) = self.on_select_ref()
-                                && let Some(item_index) = state.list.selected()
-                                && let Some(item) = self.items_as_slice().get(item_index)
-                            {
-                                shell.publish(f(item));
-                            }
-                        });
-                        shell.request_redraw();
-                    }
-
-                    _ => {}
-                }
-            }
+        let is_hovered = |tree: &Tree| tree.with_state(|state: &State| state.hovered);
+        let selection = match event {
+            crossterm::event::Event::Key(key_event) if is_hovered(tree) => match key_event.code {
+                crossterm::event::KeyCode::Up => Some(Selection::Previous),
+                crossterm::event::KeyCode::Down => Some(Selection::Next),
+                _ => None,
+            },
             crossterm::event::Event::Mouse(mouse_event) => {
                 tree.with_state_mut(|state: &mut State| {
                     state.hovered = mouse_event.column >= items_area.x
@@ -77,36 +54,47 @@ where
                         && mouse_event.row < (items_area.y + items_area.height);
                 });
 
-                if !tree.with_state(|state: &State| state.hovered) {
-                    return;
-                }
-
-                match mouse_event.kind {
-                    crossterm::event::MouseEventKind::Up(mouse_button)
-                        if mouse_button.eq(&MouseButton::Left) =>
-                    {
-                        let item_index = (mouse_event.row - items_area.y) as usize;
-                        if item_index >= self.len() {
-                            return;
-                        }
-
-                        tree.with_state_mut(|state: &mut State| {
-                            state.list = state.list.with_selected(Some(item_index));
-
-                            if let Some(f) = self.on_select_ref()
-                                && let Some(item_index) = state.list.selected()
-                                && let Some(item) = self.items_as_slice().get(item_index)
-                            {
-                                shell.publish(f(item));
+                if !is_hovered(tree) {
+                    None
+                } else {
+                    match mouse_event.kind {
+                        crossterm::event::MouseEventKind::Up(mouse_button)
+                            if mouse_button.eq(&MouseButton::Left) =>
+                        {
+                            let offset = tree.with_state(|state: &State| state.list.offset());
+                            let item_index = (mouse_event.row - items_area.y) as usize + offset;
+                            if item_index >= self.len() {
+                                None
+                            } else {
+                                Some(Selection::Index(item_index))
                             }
-                        });
-
-                        shell.request_redraw();
+                        }
+                        crossterm::event::MouseEventKind::ScrollUp => Some(Selection::Previous),
+                        crossterm::event::MouseEventKind::ScrollDown => Some(Selection::Next),
+                        _ => None,
                     }
-                    _ => {}
                 }
             }
-            _ => {}
+            _ => None,
+        };
+
+        if let Some(selection) = selection {
+            tree.with_state_mut(|state: &mut State| {
+                match selection {
+                    Selection::Previous => state.list.select_previous(),
+                    Selection::Next => state.list.select_next(),
+                    Selection::Index(i) => state.list = state.list.with_selected(Some(i)),
+                }
+
+                shell.request_redraw();
+
+                if let Some(f) = self.on_select_ref()
+                    && let Some(item_index) = state.list.selected()
+                    && let Some(item) = self.items_as_slice().get(item_index)
+                {
+                    shell.publish(f(item));
+                }
+            });
         }
     }
 
