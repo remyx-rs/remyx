@@ -5,7 +5,7 @@ use remyx::crossterm::crossterm::event::{
 };
 use remyx::crossterm::crossterm::execute;
 use remyx::crossterm::crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use remyx::element::{Element, container::Container, list::PickList};
+use remyx::element::{Element, container::Container};
 use remyx::ratatui::layout::{Constraint, Layout};
 use remyx::ratatui::style::{Color, Modifier, Style};
 use remyx::ratatui::terminal::Terminal;
@@ -14,7 +14,7 @@ use remyx::subscription::Subscription;
 use remyx::task::Task;
 use remyx::widgets::block::Block;
 use remyx::widgets::borders::Borders;
-use remyx::widgets::list::ListItem;
+use remyx::widgets::list::{List, ListItem};
 use remyx::widgets::paragraph::Paragraph;
 use remyx::{Application, runtime};
 use std::io;
@@ -65,7 +65,7 @@ impl Application for App {
             Constraint::Percentage(80),
         ]))
         .with(
-            PickList::new(vec![Link::C, Link::Rust, Link::Java])
+            List::new(vec![Link::C, Link::Rust, Link::Java])
                 .block(
                     Block::default()
                         .title_top("Links")
