@@ -1,11 +1,13 @@
-use self::{element::Element, runner::Runner, task::Task};
-use crate::subscription::Subscription;
-use ratatui_core::{backend, terminal::Terminal};
+use self::runner::Runner;
 use std::io;
 
 pub use ratatui_core as ratatui;
 pub use ratatui_crossterm as crossterm;
 pub use remyx_widgets as widgets;
+
+pub use element::Element;
+pub use subscription::Subscription;
+pub use task::Task;
 
 pub mod element;
 mod runner;
@@ -13,31 +15,31 @@ pub mod runtime;
 pub mod stream;
 pub mod subscription;
 pub mod task;
-mod terminal;
+pub mod terminal;
 
-pub fn run<Application, Runtime, Backend>(terminal: Terminal<Backend>) -> io::Result<()>
+pub fn run<Application, Runtime, Terminal>(terminal: Terminal) -> io::Result<()>
 where
     Runtime: runtime::Runtime,
     Application: self::Application,
-    Backend: backend::Backend,
+    Terminal: self::terminal::Terminal,
 {
     let rt = Runtime::new(0);
-    let runner = Runner::<Application, Runtime, Backend>::new(terminal, &rt)?;
+    let runner = Runner::<Application, Runtime, Terminal>::new(terminal, &rt)?;
     rt.block_on(runner.run())
 }
 
-pub fn run_with<Application, Runtime, Backend>(
+pub fn run_with<Application, Runtime, Terminal>(
     threads: usize,
-    terminal: Terminal<Backend>,
+    terminal: Terminal,
 ) -> io::Result<()>
 where
     Runtime: runtime::Runtime,
     Application: self::Application,
-    Backend: backend::Backend,
+    Terminal: self::terminal::Terminal,
 {
     let rt = Runtime::new(0);
     let bg_rt = Runtime::new(threads.max(1));
-    let runner = Runner::<Application, Runtime, Backend>::new(terminal, &bg_rt)?;
+    let runner = Runner::<Application, Runtime, Terminal>::new(terminal, &bg_rt)?;
     rt.block_on(runner.run())
 }
 
@@ -53,7 +55,9 @@ pub trait Application {
         message: Self::Message,
     ) -> Option<Task<Self::Message>>;
 
-    fn subscription<Runtime: runtime::Runtime>(&self) -> Vec<Subscription<Runtime, Self::Message>> {
+    fn subscription<Terminal: terminal::Terminal>(
+        &self,
+    ) -> Vec<Subscription<Terminal, Self::Message>> {
         vec![]
     }
 

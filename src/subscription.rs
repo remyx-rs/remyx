@@ -1,5 +1,4 @@
-use crate::terminal::EventResult;
-use crate::{runtime, stream};
+use crate::terminal;
 use crossterm::event::{self, KeyEvent};
 use futures::Stream;
 use futures::stream::LocalBoxStream;
@@ -28,10 +27,10 @@ impl<Message: 'static> Active<Message> {
         }
     }
 
-    fn add<Runtime: runtime::Runtime>(
+    fn add<Terminal: terminal::Terminal>(
         &mut self,
-        stream: &mut stream::Tee<Runtime, EventResult>,
-        subscription: Subscription<Runtime, Message>,
+        terminal: &mut Terminal,
+        subscription: Subscription<Terminal, Message>,
     ) {
         let registered = self
             .sources
@@ -39,15 +38,15 @@ impl<Message: 'static> Active<Message> {
             .any(|current| current.id == subscription.id);
 
         if !registered {
-            let source = subscription.build(stream);
+            let source = subscription.build(terminal);
             self.sources.push(source);
         }
     }
 
-    pub fn diff<Runtime: runtime::Runtime>(
+    pub fn diff<Terminal: terminal::Terminal>(
         &mut self,
-        stream: &mut stream::Tee<Runtime, EventResult>,
-        subscriptions: Vec<Subscription<Runtime, Message>>,
+        terminal: &mut Terminal,
+        subscriptions: Vec<Subscription<Terminal, Message>>,
     ) {
         for source in mem::take(&mut self.sources) {
             let was_previously = subscriptions
@@ -60,7 +59,7 @@ impl<Message: 'static> Active<Message> {
         }
 
         for subscription in subscriptions {
-            self.add(stream, subscription);
+            self.add(terminal, subscription);
         }
     }
 }
@@ -86,41 +85,40 @@ impl<Message> FusedStream for Active<Message> {
     }
 }
 
-type StreamFn<Runtime, Message> =
-    Box<dyn FnOnce(&mut stream::Tee<Runtime, EventResult>) -> LocalBoxStream<'static, Message>>;
+type StreamFn<Terminal, Message> =
+    Box<dyn FnOnce(&mut Terminal) -> LocalBoxStream<'static, Message>>;
 
-pub struct Subscription<Runtime, Message>
+pub struct Subscription<Terminal, Message>
 where
-    Runtime: runtime::Runtime,
+    Terminal: terminal::Terminal,
 {
     id: u64,
-    builder: StreamFn<Runtime, Message>,
+    builder: StreamFn<Terminal, Message>,
 }
 
-impl<Runtime, Message: 'static> Subscription<Runtime, Message>
+impl<Terminal, Message: 'static> Subscription<Terminal, Message>
 where
-    Runtime: runtime::Runtime,
+    Terminal: terminal::Terminal,
 {
-    pub fn new<Stream>(f: fn() -> Stream) -> Self
+    pub fn new<S>(f: fn() -> S) -> Self
     where
-        Stream: futures::Stream<Item = Message> + 'static,
+        S: futures::Stream<Item = Message> + 'static,
     {
         let id: u64 = f as usize as u64;
-        let builder = Box::new(move |_: &mut stream::Tee<Runtime, EventResult>| f().boxed_local());
+        let builder = Box::new(move |_: &mut Terminal| f().boxed_local());
         Self { id, builder }
     }
 
-    pub fn with<I, Stream>(data: I, f: fn(&I) -> Stream) -> Self
+    pub fn with<I, S>(data: I, f: fn(&I) -> S) -> Self
     where
         I: Hash + 'static,
-        Stream: futures::Stream<Item = Message> + 'static,
+        S: futures::Stream<Item = Message> + 'static,
     {
         let mut hasher = DefaultHasher::new();
         data.hash(&mut hasher);
 
-        let id: u64 = f as usize as u64 & hasher.finish();
-        let builder =
-            Box::new(move |_: &mut stream::Tee<Runtime, EventResult>| f(&data).boxed_local());
+        let id: u64 = f as usize as u64 ^ hasher.finish();
+        let builder = Box::new(move |_: &mut Terminal| f(&data).boxed_local());
         Self { id, builder }
     }
 
@@ -133,9 +131,9 @@ where
         TypeId::of::<KeyListener>().hash(&mut hasher);
         let id = hasher.finish();
 
-        let builder = Box::new(move |stream: &mut stream::Tee<Runtime, EventResult>| {
-            stream
-                .fork()
+        let builder = Box::new(move |terminal: &mut Terminal| {
+            terminal
+                .subscribe()
                 .filter_map(move |res| {
                     future::ready(match res {
                         Ok(val) => match val {
@@ -151,8 +149,8 @@ where
         Self { id, builder }
     }
 
-    pub fn build(self, stream: &mut stream::Tee<Runtime, EventResult>) -> Source<Message> {
-        let stream = (self.builder)(stream);
+    pub fn build(self, terminal: &mut Terminal) -> Source<Message> {
+        let stream = (self.builder)(terminal);
         Source::new(self.id, stream)
     }
 }
