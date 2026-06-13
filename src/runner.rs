@@ -7,31 +7,30 @@ use crate::{
     runtime::{self, JoinHandle},
     stream::{self},
     subscription, task,
-    terminal::{self, EventResult},
+    terminal::{self, Cursor, EventResult},
 };
 
-pub struct Runner<'a, Application, Runtime, Backend>
+pub struct Runner<'a, Application, Runtime, Terminal>
 where
     Application: crate::Application,
     Runtime: runtime::Runtime,
-    Backend: backend::Backend,
+    Terminal: terminal::Terminal,
 {
-    terminal: Terminal<Backend>,
+    terminal: Terminal,
     app: Application,
     tree: Tree,
     tasks: task::Pending<Runtime, Application::Message>,
     subscriptions: subscription::Active<Application::Message>,
-    terminal_events: stream::Tee<Runtime, EventResult>,
     rt: &'a Runtime,
 }
 
-impl<'a, Application, Runtime, Backend> Runner<'a, Application, Runtime, Backend>
+impl<'a, Application, Runtime, Terminal> Runner<'a, Application, Runtime, Terminal>
 where
     Application: crate::Application,
     Runtime: runtime::Runtime,
-    Backend: backend::Backend,
+    Terminal: terminal::Terminal,
 {
-    pub fn new(terminal: Terminal<Backend>, rt: &'a Runtime) -> io::Result<Self> {
+    pub fn new(terminal: Terminal, rt: &'a Runtime) -> io::Result<Self> {
         let (app, task) = Application::init::<Runtime>();
         let tree = Tree::init(&app.view());
         let tasks = task::Pending::new();
@@ -47,7 +46,6 @@ where
             tree,
             tasks,
             subscriptions,
-            terminal_events: terminal::events(),
             rt,
         })
     }
@@ -59,18 +57,10 @@ where
                 subscription = self.subscriptions.next() => if let Some(msg) = subscription {
                     self.update(msg);
                 },
-                task = self.tasks.next() => match task {
-                    Some(Ok(msg)) => {
-                        self.update(msg);
-                    }
-                    Some(Err(_)) => {
-
-                    }
-                    None => {
-
-                    }
+                task = self.tasks.next() => if let Some(Ok(msg)) = task {
+                    self.update(msg);
                 },
-                event = self.terminal_events.next() => match event {
+                event = self.terminal.next() => match event {
                     Some(Ok(event)) => {
                         if !self.handle_terminal_event(event) {
                             continue;
@@ -101,14 +91,16 @@ where
 
     fn handle_terminal_event(&mut self, event: crossterm::event::Event) -> bool {
         let area = self.terminal.get_frame().area();
-        let mut shell = Shell::new();
-        self.app.view().update(&self.tree, area, event, &mut shell);
+        let cursor = self.terminal.mouse();
+        let mut ctx = Context::new(cursor);
 
-        if !shell.should_redraw() {
+        self.app.view().update(&self.tree, area, event, &mut ctx);
+
+        if !ctx.should_redraw() {
             return false;
         }
 
-        for msg in shell.clear() {
+        for msg in ctx.messages() {
             self.update(msg);
         }
 
@@ -130,17 +122,23 @@ where
 }
 
 #[derive(Debug)]
-pub struct Shell<Message> {
+pub struct Context<Message> {
+    cursor: Cursor,
     messages: Vec<Message>,
-    redraw_requested: bool,
+    redraw: bool,
 }
 
-impl<Message> Shell<Message> {
-    fn new() -> Self {
+impl<Message> Context<Message> {
+    fn new(cursor: Cursor) -> Self {
         Self {
+            cursor,
             messages: Vec::new(),
-            redraw_requested: false,
+            redraw: false,
         }
+    }
+
+    pub fn cursor(&self) -> &Cursor {
+        &self.cursor
     }
 
     pub fn publish(&mut self, message: Message) {
@@ -148,16 +146,14 @@ impl<Message> Shell<Message> {
     }
 
     pub fn should_redraw(&self) -> bool {
-        self.redraw_requested || !self.messages.is_empty()
+        self.redraw || !self.messages.is_empty()
     }
 
-    pub fn request_redraw(&mut self) {
-        self.redraw_requested = true;
+    pub fn redraw(&mut self) {
+        self.redraw = true;
     }
 
-    pub fn clear(&mut self) -> Vec<Message> {
-        let messages = self.messages.drain(..).collect::<Vec<_>>();
-        self.redraw_requested = false;
-        messages
+    pub fn messages(&mut self) -> Vec<Message> {
+        self.messages.drain(..).collect::<Vec<_>>()
     }
 }

@@ -1,4 +1,4 @@
-use crate::runner::Shell;
+use crate::runner::Context;
 use crossterm::event::Event;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
@@ -6,10 +6,13 @@ use ratatui_core::text::{Span, Text};
 use ratatui_core::widgets::Widget;
 use remyx_widgets::barchart::BarChart;
 use remyx_widgets::block::Block;
-use remyx_widgets::canvas::{Canvas, Context};
+use remyx_widgets::canvas::{Canvas, Context as CanvasContext};
 use remyx_widgets::chart::Chart;
 use remyx_widgets::clear::Clear;
+use remyx_widgets::fill::Fill;
 use remyx_widgets::gauge::{Gauge, LineGauge};
+use remyx_widgets::logo::RatatuiLogo;
+use remyx_widgets::mascot::RatatuiMascot;
 use remyx_widgets::paragraph::Paragraph;
 use remyx_widgets::sparkline::Sparkline;
 use remyx_widgets::tabs::Tabs;
@@ -99,7 +102,7 @@ impl Tree {
 pub trait Element<Message> {
     fn draw(&self, tree: &Tree, area: Rect, buffer: &mut Buffer);
 
-    fn update(&self, _tree: &Tree, _area: Rect, _event: Event, _shell: &mut Shell<Message>) {}
+    fn update(&self, _tree: &Tree, _area: Rect, _event: Event, _ctx: &mut Context<Message>) {}
 
     fn id(&self) -> TypeId;
 
@@ -131,22 +134,25 @@ impl_stateless_element!(Block<'_>);
 impl_stateless_element!(BarChart<'_>);
 impl_stateless_element!(Chart<'_>);
 impl_stateless_element!(Clear);
+impl_stateless_element!(Fill<'_>);
 impl_stateless_element!(Gauge<'_>);
 impl_stateless_element!(LineGauge<'_>);
 impl_stateless_element!(Paragraph<'_>);
 impl_stateless_element!(Sparkline<'_>);
 impl_stateless_element!(Tabs<'_>);
+impl_stateless_element!(RatatuiLogo);
+impl_stateless_element!(RatatuiMascot);
 
 impl<'a, Message: 'static, F> Element<Message> for Canvas<'a, F>
 where
-    F: Fn(&mut Context<'_>),
+    F: Fn(&mut CanvasContext<'_>),
 {
     fn draw(&self, _tree: &Tree, area: Rect, buffer: &mut Buffer) {
         self.render(area, buffer);
     }
 
     fn id(&self) -> TypeId {
-        TypeId::of::<Canvas<'static, fn(&mut Context<'_>)>>()
+        TypeId::of::<Canvas<'static, fn(&mut CanvasContext<'_>)>>()
     }
 }
 

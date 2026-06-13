@@ -8,7 +8,7 @@ use ratatui_core::{
 
 use crate::{
     element::{Element, GenericState, Tree},
-    runner::Shell,
+    runner::Context,
 };
 
 pub struct Container<Message> {
@@ -54,14 +54,14 @@ impl<Message: 'static> Element<Message> for Container<Message> {
         self.children.as_slice()
     }
 
-    fn update(&self, tree: &Tree, area: Rect, event: Event, shell: &mut Shell<Message>) {
+    fn update(&self, tree: &Tree, area: Rect, event: Event, ctx: &mut Context<Message>) {
         self.layout
             .split(area)
             .iter()
             .zip(tree.children.iter())
             .zip(self.children.iter())
             .for_each(|((area, tree), child)| {
-                child.update(tree, *area, event.clone(), shell);
+                child.update(tree, *area, event.clone(), ctx);
             });
     }
 }

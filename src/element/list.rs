@@ -2,7 +2,7 @@ use std::{any::TypeId, cell::RefCell};
 
 use crate::{
     element::{Element, GenericState, Tree},
-    runner::Shell,
+    runner::Context,
 };
 use crossterm::event::{Event, MouseButton};
 use ratatui_core::widgets::StatefulWidget;
@@ -15,8 +15,8 @@ where
     Item: Clone + Into<ListItem<'static>> + 'static,
 {
     fn draw(&self, tree: &Tree, area: Rect, buffer: &mut Buffer) {
-        tree.with_state_mut(|state: &mut State| {
-            self.render(area, buffer, &mut state.list);
+        tree.with_state_mut(|state: &mut ListState| {
+            self.render(area, buffer, state);
         });
     }
 
@@ -25,7 +25,7 @@ where
         tree: &Tree,
         area: Rect,
         event: crossterm::event::Event,
-        shell: &mut Shell<Message>,
+        ctx: &mut Context<Message>,
     ) {
         enum Selection {
             Previous,
@@ -39,20 +39,11 @@ where
             area
         };
 
-        if let Event::Mouse(mouse_event) = event {
-            tree.with_state_mut(|state: &mut State| {
-                state.hovered = mouse_event.column >= items_area.x
-                    && mouse_event.column < (items_area.x + items_area.width)
-                    && mouse_event.row >= items_area.y
-                    && mouse_event.row < (items_area.y + items_area.height);
-            });
-        }
-
-        if !tree.with_state(|s: &State| s.hovered) {
+        if !ctx.cursor().is_hovering(items_area) {
             return;
         }
 
-        let offset = tree.with_state(|state: &State| state.list.offset());
+        let offset = tree.with_state(|state: &ListState| state.offset());
         let selection = match self.direction_ref() {
             ListDirection::TopToBottom => match event {
                 crossterm::event::Event::Key(key_event) => match key_event.code {
@@ -97,19 +88,19 @@ where
         };
 
         if let Some(selection) = selection {
-            tree.with_state_mut(|state: &mut State| {
+            tree.with_state_mut(|state: &mut ListState| {
                 match selection {
-                    Selection::Previous => state.list.select_previous(),
-                    Selection::Next => state.list.select_next(),
-                    Selection::Index(index) => state.list = state.list.with_selected(Some(index)),
+                    Selection::Previous => state.select_previous(),
+                    Selection::Next => state.select_next(),
+                    Selection::Index(index) => *state = state.with_selected(Some(index)),
                 }
 
-                shell.request_redraw();
+                ctx.redraw();
                 if let Some(f) = self.on_select_ref()
-                    && let Some(item_index) = state.list.selected()
+                    && let Some(item_index) = state.selected()
                     && let Some(item) = self.items_as_slice().get(item_index)
                 {
-                    shell.publish(f(item));
+                    ctx.publish(f(item));
                 }
             });
         }
@@ -120,18 +111,10 @@ where
     }
 
     fn state(&self) -> Option<GenericState> {
-        Some(RefCell::new(Box::new(State {
-            list: ListState::default(),
-            hovered: false,
-        })))
+        Some(RefCell::new(Box::new(ListState::default())))
     }
 
     fn children(&self) -> &[Box<dyn Element<Message>>] {
         &[]
     }
-}
-
-pub struct State {
-    list: ListState,
-    hovered: bool,
 }
