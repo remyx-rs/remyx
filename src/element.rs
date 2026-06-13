@@ -13,7 +13,6 @@ use remyx_widgets::fill::Fill;
 use remyx_widgets::gauge::{Gauge, LineGauge};
 use remyx_widgets::logo::RatatuiLogo;
 use remyx_widgets::mascot::RatatuiMascot;
-use remyx_widgets::paragraph::Paragraph;
 use remyx_widgets::sparkline::Sparkline;
 use remyx_widgets::tabs::Tabs;
 use std::any::{Any, TypeId};
@@ -21,6 +20,7 @@ use std::cell::RefCell;
 
 pub mod container;
 pub mod list;
+pub mod paragraph;
 
 pub type GenericState = RefCell<Box<dyn Any>>;
 
@@ -137,7 +137,6 @@ impl_stateless_element!(Clear);
 impl_stateless_element!(Fill<'_>);
 impl_stateless_element!(Gauge<'_>);
 impl_stateless_element!(LineGauge<'_>);
-impl_stateless_element!(Paragraph<'_>);
 impl_stateless_element!(Sparkline<'_>);
 impl_stateless_element!(Tabs<'_>);
 impl_stateless_element!(RatatuiLogo);
