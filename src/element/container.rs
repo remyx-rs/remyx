@@ -1,7 +1,7 @@
 use std::any::TypeId;
 
 use crossterm::event::Event;
-use ratatui::{
+use ratatui_core::{
     buffer::Buffer,
     layout::{Layout, Rect},
 };
@@ -16,7 +16,7 @@ pub struct Container<Message> {
     children: Vec<Box<dyn Element<Message>>>,
 }
 
-impl<M> Container<M> {
+impl<Message> Container<Message> {
     pub fn layout(layout: Layout) -> Self {
         Self {
             layout,
@@ -24,7 +24,7 @@ impl<M> Container<M> {
         }
     }
 
-    pub fn with(mut self, child: impl Element<M> + 'static) -> Self {
+    pub fn with(mut self, child: impl Element<Message> + 'static) -> Self {
         self.children.push(Box::new(child));
         self
     }

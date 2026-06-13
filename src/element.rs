@@ -1,15 +1,20 @@
-use ratatui::buffer::Buffer;
-use ratatui::crossterm::event::Event;
-use ratatui::layout::Rect;
-use ratatui::text::{Span, Text};
-use ratatui::widgets::canvas::{Canvas, Context};
-use ratatui::widgets::{
-    BarChart, Block, Chart, Clear, Gauge, LineGauge, Paragraph, Sparkline, Tabs, Widget,
-};
+use crate::runner::Shell;
+use crossterm::event::Event;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::text::{Span, Text};
+use ratatui_core::widgets::Widget;
+use ratatui_widgets::barchart::BarChart;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::canvas::{Canvas, Context};
+use ratatui_widgets::chart::Chart;
+use ratatui_widgets::clear::Clear;
+use ratatui_widgets::gauge::{Gauge, LineGauge};
+use ratatui_widgets::paragraph::Paragraph;
+use ratatui_widgets::sparkline::Sparkline;
+use ratatui_widgets::tabs::Tabs;
 use std::any::{Any, TypeId};
 use std::cell::RefCell;
-
-use crate::runner::Shell;
 
 pub mod container;
 pub mod list;
