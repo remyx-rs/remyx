@@ -7,7 +7,7 @@ use crate::{
 use crossterm::event::{Event, MouseButton};
 use ratatui_core::widgets::StatefulWidget;
 use ratatui_core::{buffer::Buffer, layout::Rect};
-use ratatui_widgets::list::{List, ListDirection, ListItem, ListState};
+use remyx_widgets::list::{List, ListDirection, ListItem, ListState};
 
 impl<Item, Message> Element<Message> for List<'static, Item, Message>
 where
