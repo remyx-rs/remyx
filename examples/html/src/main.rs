@@ -4,18 +4,16 @@ use remyx::crossterm::crossterm::event::{
 };
 use remyx::crossterm::crossterm::execute;
 use remyx::crossterm::crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use remyx::element::{Element, container::Container};
+use remyx::element::container::Container;
 use remyx::ratatui::layout::{Constraint, Layout};
 use remyx::ratatui::style::{Color, Modifier, Style};
 use remyx::runtime::tokio::Tokio;
-use remyx::subscription::Subscription;
-use remyx::task::Task;
 use remyx::terminal::crossterm::Crossterm;
 use remyx::widgets::block::Block;
 use remyx::widgets::borders::Borders;
 use remyx::widgets::list::{List, ListItem};
 use remyx::widgets::paragraph::Paragraph;
-use remyx::{Application, runtime};
+use remyx::{Application, Element, Subscription, Task, runtime, terminal};
 use std::io;
 
 fn main() -> io::Result<()> {
@@ -121,7 +119,7 @@ impl Application for App {
         }
     }
 
-    fn subscription<Terminal: remyx::terminal::Terminal>(
+    fn subscription<Terminal: terminal::Terminal>(
         &self,
     ) -> Vec<Subscription<Terminal, Self::Message>> {
         let exit = Subscription::key(|key| {

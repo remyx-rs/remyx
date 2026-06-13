@@ -29,7 +29,7 @@ where
 impl<Runtime> Default for Crossterm<Runtime>
 where
     Runtime: runtime::Runtime,
- {
+{
     fn default() -> Self {
         Self::new()
     }

@@ -1,10 +1,13 @@
-use self::{element::Element, runner::Runner, task::Task};
-use crate::subscription::Subscription;
+use self::runner::Runner;
 use std::io;
 
 pub use ratatui_core as ratatui;
 pub use ratatui_crossterm as crossterm;
 pub use remyx_widgets as widgets;
+
+pub use element::Element;
+pub use subscription::Subscription;
+pub use task::Task;
 
 pub mod element;
 mod runner;
