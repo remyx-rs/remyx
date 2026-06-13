@@ -1,13 +1,11 @@
 use futures::StreamExt;
-use ratatui_core::{backend, terminal::Terminal};
 use std::io;
 
 use crate::{
     element::{Element, Tree},
     runtime::{self, JoinHandle},
-    stream::{self},
     subscription, task,
-    terminal::{self, Cursor, EventResult},
+    terminal::{self, Cursor},
 };
 
 pub struct Runner<'a, Application, Runtime, Terminal>
@@ -110,10 +108,8 @@ where
     fn redraw(&mut self) {
         let view = self.app.view();
         self.tree.diff(&view);
-        self.subscriptions.diff(
-            &mut self.terminal_events,
-            self.app.subscription::<Runtime>(),
-        );
+        self.subscriptions
+            .diff(&mut self.terminal, self.app.subscription::<Terminal>());
 
         let _ = self.terminal.draw(|frame| {
             view.draw(&self.tree, frame.area(), frame.buffer_mut());

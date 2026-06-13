@@ -26,6 +26,15 @@ where
     mouse_pos: Position,
 }
 
+impl<Runtime> Default for Crossterm<Runtime>
+where
+    Runtime: runtime::Runtime,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<Runtime> Crossterm<Runtime>
 where
     Runtime: runtime::Runtime,
@@ -51,7 +60,7 @@ where
         Cursor::new(self.mouse_pos)
     }
 
-    fn subscribe(&mut self) -> impl Stream<Item = EventResult> {
+    fn subscribe(&mut self) -> impl Stream<Item = EventResult> + 'static {
         self.event_stream.fork()
     }
 

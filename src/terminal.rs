@@ -30,7 +30,7 @@ impl Cursor {
 
 pub trait Terminal: FusedStream<Item = EventResult> + Unpin {
     fn mouse(&self) -> Cursor;
-    fn subscribe(&mut self) -> impl Stream<Item = EventResult>;
+    fn subscribe(&mut self) -> impl Stream<Item = EventResult> + 'static;
     fn get_frame(&mut self) -> Frame<'_>;
     fn draw<F>(&mut self, render_callback: F) -> io::Result<CompletedFrame<'_>>
     where
