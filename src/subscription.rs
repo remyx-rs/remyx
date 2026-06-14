@@ -49,11 +49,11 @@ impl<Message: 'static> Active<Message> {
         subscriptions: Vec<Subscription<Terminal, Message>>,
     ) {
         for source in mem::take(&mut self.sources) {
-            let was_previously = subscriptions
+            let still_present = subscriptions
                 .iter()
                 .any(|incoming| incoming.id == source.id);
 
-            if was_previously {
+            if still_present {
                 self.sources.push(source);
             }
         }

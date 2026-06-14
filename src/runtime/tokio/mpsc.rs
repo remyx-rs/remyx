@@ -1,7 +1,10 @@
 use futures::FutureExt;
 use tokio::sync::mpsc::error::SendError;
 
-use crate::runtime::mpsc::{Mpsc, Receiver, Sender, TryRecvError, TrySendError};
+use crate::runtime::{
+    TryRecvError,
+    mpsc::{Mpsc, Receiver, Sender, TrySendError},
+};
 
 pub struct TokioMpsc {}
 

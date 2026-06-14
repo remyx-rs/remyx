@@ -1,6 +1,7 @@
 use lol_html::{HtmlRewriter, Settings, element};
 use remyx::crossterm::crossterm::event::{
     DisableMouseCapture, EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, KeyCode,
+    KeyModifiers,
 };
 use remyx::crossterm::crossterm::execute;
 use remyx::crossterm::crossterm::terminal::{disable_raw_mode, enable_raw_mode};
@@ -123,11 +124,8 @@ impl Application for App {
         &self,
     ) -> Vec<Subscription<Terminal, Self::Message>> {
         let exit = Subscription::key(|key| {
-            if key.code.eq(&KeyCode::Esc) {
-                Some(Message::Exit)
-            } else {
-                None
-            }
+            (key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL))
+                .then_some(Message::Exit)
         });
 
         vec![exit]
@@ -145,9 +143,9 @@ pub enum Link {
     Java,
 }
 
-impl Into<ListItem<'static>> for Link {
-    fn into(self) -> ListItem<'static> {
-        match self {
+impl From<Link> for ListItem<'static> {
+    fn from(link: Link) -> Self {
+        match link {
             Link::Rust => ListItem::new("Rust"),
             Link::C => ListItem::new("C"),
             Link::Java => ListItem::new("Java"),

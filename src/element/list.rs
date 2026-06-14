@@ -113,8 +113,4 @@ where
     fn state(&self) -> Option<GenericState> {
         Some(RefCell::new(Box::new(ListState::default())))
     }
-
-    fn children(&self) -> &[Box<dyn Element<Message>>] {
-        &[]
-    }
 }

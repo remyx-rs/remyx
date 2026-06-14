@@ -10,6 +10,11 @@ use crate::runtime::{
     mpsc::{Mpsc, MpscSenderOf, Receiver, Sender, TrySendError},
 };
 
+/// A stream splitter that broadcasts items to multiple subscribers.
+///
+/// Items are delivered on a best-effort basis: if a subscriber's channel is full,
+/// the item is dropped for that subscriber rather than blocking the producer.
+/// Subscribers whose channels are closed are automatically removed.
 pub struct Tee<Runtime, Item>
 where
     Item: Send + Clone,

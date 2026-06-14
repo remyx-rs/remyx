@@ -88,4 +88,8 @@ impl Listener<tokio::net::TcpStream> for tokio::net::TcpListener {
     fn accept(&self) -> impl Future<Output = io::Result<(tokio::net::TcpStream, SocketAddr)>> {
         self.accept()
     }
+
+    fn local_addr(&self) -> io::Result<SocketAddr> {
+        self.local_addr()
+    }
 }

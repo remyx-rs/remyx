@@ -21,7 +21,7 @@ pub fn run<Application, Runtime, Terminal>(terminal: Terminal) -> io::Result<()>
 where
     Runtime: runtime::Runtime,
     Application: self::Application,
-    Terminal: self::terminal::Terminal,
+    Terminal: terminal::Terminal,
 {
     let rt = Runtime::new(0);
     let runner = Runner::<Application, Runtime, Terminal>::new(terminal, &rt)?;
@@ -35,7 +35,7 @@ pub fn run_with<Application, Runtime, Terminal>(
 where
     Runtime: runtime::Runtime,
     Application: self::Application,
-    Terminal: self::terminal::Terminal,
+    Terminal: terminal::Terminal,
 {
     let rt = Runtime::new(0);
     let bg_rt = Runtime::new(threads.max(1));

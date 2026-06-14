@@ -1,6 +1,9 @@
 use futures::FutureExt;
 
-use crate::runtime::oneshot::{Oneshot, Receiver, Sender, TryRecvError};
+use crate::runtime::{
+    TryRecvError,
+    oneshot::{Oneshot, Receiver, Sender},
+};
 
 pub struct TokioOneshot {}
 

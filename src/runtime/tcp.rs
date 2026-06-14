@@ -20,6 +20,7 @@ pub trait Tcp {
 
 pub trait Listener<S: Stream>: Send {
     fn accept(&self) -> impl Future<Output = io::Result<(S, SocketAddr)>> + Send;
+    fn local_addr(&self) -> io::Result<SocketAddr>;
 }
 
 pub trait Stream: Read + Write + State {
