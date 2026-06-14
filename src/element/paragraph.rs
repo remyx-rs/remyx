@@ -27,7 +27,8 @@ impl<Message> Element<Message> for Paragraph<'_> {
 
         if !tree.with_state(|s: &ParagraphState| s.limits_set()) {
             tree.with_state_mut(|state: &mut ParagraphState| {
-                state.limits(limits(self, area));
+                let limits = get_limits(self, area);
+                state.limits(limits);
             });
             ctx.redraw();
         }
@@ -54,7 +55,8 @@ impl<Message> Element<Message> for Paragraph<'_> {
             },
             Event::Resize(..) => {
                 tree.with_state_mut(|state: &mut ParagraphState| {
-                    state.limits(limits(self, area));
+                    let limits = get_limits(self, area);
+                    state.limits(limits);
                 });
                 ctx.redraw();
                 None
@@ -90,7 +92,7 @@ impl<Message> Element<Message> for Paragraph<'_> {
     }
 }
 
-fn limits(paragraph: &Paragraph<'_>, area: Rect) -> Position {
+fn get_limits(paragraph: &Paragraph<'_>, area: Rect) -> Position {
     Position {
         x: paragraph.line_width().saturating_sub(area.width as usize) as u16,
         y: paragraph
