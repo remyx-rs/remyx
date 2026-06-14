@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::runtime::Runtime;
+use crate::runtime::{Runtime, TryRecvError};
 
 pub type MpscSenderOf<R, T> = <<R as Runtime>::Mpsc as Mpsc>::Sender<T>;
 pub type MpscReceiverOf<R, T> = <<R as Runtime>::Mpsc as Mpsc>::Receiver<T>;
@@ -46,25 +46,6 @@ impl<T> fmt::Display for TrySendError<T> {
                 TrySendError::Closed(..) => "channel closed",
             }
         )
-    }
-}
-
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub enum TryRecvError {
-    /// This **channel** is currently empty, but the **Sender**(s) have not yet
-    /// disconnected, so data may yet become available.
-    Empty,
-    /// The **channel**'s sending half has become disconnected, and there will
-    /// never be any more data received on it.
-    Disconnected,
-}
-
-impl fmt::Display for TryRecvError {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            TryRecvError::Empty => "receiving on an empty channel".fmt(fmt),
-            TryRecvError::Disconnected => "receiving on a closed channel".fmt(fmt),
-        }
     }
 }
 

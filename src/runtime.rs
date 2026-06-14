@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, pin::Pin};
+use std::{fmt, marker::PhantomData, pin::Pin};
 
 use crate::runtime::{mpsc::Mpsc, oneshot::Oneshot, tcp::Tcp, time::Time};
 
@@ -16,6 +16,21 @@ pub type JoinHandleFutOf<R, T> = JoinHandleFut<JoinHandleOf<R, T>, T>;
 pub enum JoinError {
     Panicked,
     Cancelled,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum TryRecvError {
+    Empty,
+    Disconnected,
+}
+
+impl fmt::Display for TryRecvError {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            TryRecvError::Empty => "receiving on an empty channel".fmt(fmt),
+            TryRecvError::Disconnected => "receiving on a closed channel".fmt(fmt),
+        }
+    }
 }
 
 pub trait JoinHandle<T>: Unpin + Send {

@@ -95,6 +95,6 @@ fn limits(paragraph: &Paragraph<'_>, area: Rect) -> Position {
         x: paragraph.line_width().saturating_sub(area.width as usize) as u16,
         y: paragraph
             .line_count(area.width)
-            .saturating_sub(area.width as usize) as u16,
+            .saturating_sub(area.height as usize) as u16,
     }
 }

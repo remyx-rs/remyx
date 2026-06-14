@@ -10,29 +10,28 @@ use remyx::runtime::{
 };
 
 pub async fn listener_bind_succeeds_on_localhost<R: Runtime>(_rt: &R) {
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8080);
+    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0);
     let listener = R::Tcp::listener(addr).await;
     assert!(listener.is_ok());
 }
 
 pub async fn stream_connect_succeeds_to_bound_listener<R: Runtime>(rt: &R) {
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8081);
-    rt.spawn(async move {
-        let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8081);
-        let listener = R::Tcp::listener(addr).await.unwrap();
-
-        while listener.accept().await.is_ok() {}
-    });
-    R::Time::sleep(Duration::from_millis(250)).await;
+    let listener = R::Tcp::listener(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let addr = listener.local_addr().unwrap();
+    rt.spawn(async move { while listener.accept().await.is_ok() {} });
+    R::Time::sleep(Duration::from_millis(50)).await;
     let stream = R::Tcp::stream(addr).await;
     assert!(stream.is_ok());
 }
 
 pub async fn stream_read_write_round_trip_succeeds<R: Runtime>(rt: &R) {
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8082);
+    let listener = R::Tcp::listener(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let addr = listener.local_addr().unwrap();
     rt.spawn(async move {
-        let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8082);
-        let listener = R::Tcp::listener(addr).await.unwrap();
         while let Ok((stream, _)) = listener.accept().await {
             let (mut read, mut write) = stream.split();
             write.write_all("hello world!".as_bytes()).await.unwrap();
@@ -43,7 +42,7 @@ pub async fn stream_read_write_round_trip_succeeds<R: Runtime>(rt: &R) {
         }
     });
 
-    R::Time::sleep(Duration::from_millis(250)).await;
+    R::Time::sleep(Duration::from_millis(50)).await;
 
     let (mut read, mut write) = R::Tcp::stream(addr).await.unwrap().split();
 

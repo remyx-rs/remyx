@@ -1,5 +1,5 @@
 use futures::StreamExt;
-use std::io;
+use std::{io, mem};
 
 use crate::{
     element::{Element, Tree},
@@ -65,7 +65,7 @@ where
                         }
                     }
                     Some(Err(kind)) =>  {
-                        return Err(io::Error::new(kind, kind.to_string()));
+                        return Err(io::Error::from(kind));
                     },
                     None => break,
                 },
@@ -150,6 +150,6 @@ impl<Message> Context<Message> {
     }
 
     pub fn messages(&mut self) -> Vec<Message> {
-        self.messages.drain(..).collect::<Vec<_>>()
+        mem::take(&mut self.messages)
     }
 }
