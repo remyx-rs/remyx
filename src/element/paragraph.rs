@@ -1,7 +1,11 @@
 use std::{any::TypeId, cell::RefCell};
 
 use crossterm::event::Event;
-use ratatui_core::{buffer::Buffer, layout::Rect, widgets::StatefulWidget};
+use ratatui_core::{
+    buffer::Buffer,
+    layout::{Position, Rect},
+    widgets::StatefulWidget,
+};
 use remyx_widgets::paragraph::{Axe, Paragraph, ParagraphState};
 
 use crate::{
@@ -19,6 +23,13 @@ impl<Message> Element<Message> for Paragraph<'_> {
     fn update(&self, tree: &Tree, area: Rect, event: Event, ctx: &mut Context<Message>) {
         if !ctx.cursor().is_hovering(area) {
             return;
+        }
+
+        if !tree.with_state(|s: &ParagraphState| s.limits_set()) {
+            tree.with_state_mut(|state: &mut ParagraphState| {
+                state.limits(limits(self, area));
+            });
+            ctx.redraw();
         }
 
         enum Scroll {
@@ -41,6 +52,13 @@ impl<Message> Element<Message> for Paragraph<'_> {
                 crossterm::event::MouseEventKind::ScrollDown => Some(Scroll::Down),
                 _ => None,
             },
+            Event::Resize(..) => {
+                tree.with_state_mut(|state: &mut ParagraphState| {
+                    state.limits(limits(self, area));
+                });
+                ctx.redraw();
+                None
+            }
             _ => None,
         };
 
@@ -56,11 +74,27 @@ impl<Message> Element<Message> for Paragraph<'_> {
         }
     }
 
-    fn state(&self) -> Option<GenericState> {
-        Some(RefCell::new(Box::new(ParagraphState::default())))
+    fn diff(&self, tree: &mut Tree) {
+        let length = tree.with_state(|s: &ParagraphState| s.len());
+        if self.len() != length {
+            tree.state = Element::<Message>::state(self);
+        }
     }
 
+    fn state(&self) -> Option<GenericState> {
+        let length = self.len();
+        Some(RefCell::new(Box::new(ParagraphState::new(length))))
+    }
     fn id(&self) -> std::any::TypeId {
         TypeId::of::<Paragraph<'static>>()
+    }
+}
+
+fn limits(paragraph: &Paragraph<'_>, area: Rect) -> Position {
+    Position {
+        x: paragraph.line_width().saturating_sub(area.width as usize) as u16,
+        y: paragraph
+            .line_count(area.width)
+            .saturating_sub(area.width as usize) as u16,
     }
 }

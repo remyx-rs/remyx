@@ -75,6 +75,9 @@ impl Tree {
         if !self.id.eq(&element.id()) {
             *self = Tree::init(element);
         } else {
+            // Check State compatibility
+            element.diff(self);
+
             // Remove extra old children
             self.children.truncate(element.children().len());
 
@@ -109,6 +112,8 @@ pub trait Element<Message> {
     fn state(&self) -> Option<GenericState> {
         None
     }
+
+    fn diff(&self, _tree: &mut Tree) {}
 
     fn children(&self) -> &[Box<dyn Element<Message>>] {
         &[]
