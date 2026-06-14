@@ -2,7 +2,7 @@ use std::{any::TypeId, cell::RefCell};
 
 use crossterm::event::Event;
 use ratatui_core::{buffer::Buffer, layout::Rect, widgets::StatefulWidget};
-use remyx_widgets::paragraph::{Paragraph, ParagraphState};
+use remyx_widgets::paragraph::{Axe, Paragraph, ParagraphState};
 
 use crate::{
     element::{Element, GenericState, Tree},
@@ -24,12 +24,16 @@ impl<Message> Element<Message> for Paragraph<'_> {
         enum Scroll {
             Up,
             Down,
+            Left,
+            Right,
         }
 
         let scroll = match event {
             Event::Key(key_event) => match key_event.code {
                 crossterm::event::KeyCode::Up => Some(Scroll::Up),
                 crossterm::event::KeyCode::Down => Some(Scroll::Down),
+                crossterm::event::KeyCode::Left => Some(Scroll::Left),
+                crossterm::event::KeyCode::Right => Some(Scroll::Right),
                 _ => None,
             },
             Event::Mouse(mouse_event) => match mouse_event.kind {
@@ -42,15 +46,18 @@ impl<Message> Element<Message> for Paragraph<'_> {
 
         if let Some(scroll) = scroll {
             tree.with_state_mut(|state: &mut ParagraphState| match scroll {
-                Scroll::Up => state.decr_offset_y(),
-                Scroll::Down => state.incr_offset_y(),
+                Scroll::Up => state.offset_add(Axe::Y, -1),
+                Scroll::Down => state.offset_add(Axe::Y, 1),
+                Scroll::Left => state.offset_add(Axe::X, -1),
+                Scroll::Right => state.offset_add(Axe::X, 1),
             });
+
             ctx.redraw();
         }
     }
 
     fn state(&self) -> Option<GenericState> {
-        Some(RefCell::new(Box::new(ParagraphState::new())))
+        Some(RefCell::new(Box::new(ParagraphState::default())))
     }
 
     fn id(&self) -> std::any::TypeId {
