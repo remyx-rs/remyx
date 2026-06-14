@@ -1,7 +1,7 @@
-use std::{any::TypeId, cell::RefCell};
+use std::any::TypeId;
 
 use crate::{
-    element::{Element, GenericState, Tree},
+    element::{Element, State, Tree},
     runner::Context,
 };
 use crossterm::event::{Event, MouseButton};
@@ -15,8 +15,8 @@ where
     Item: Clone + Into<ListItem<'static>> + 'static,
 {
     fn draw(&self, tree: &Tree, area: Rect, buffer: &mut Buffer) {
-        tree.with_state_mut(|state: &mut ListState| {
-            self.render(area, buffer, state);
+        tree.state_mut::<ListState, _, _>(|s| {
+            self.render(area, buffer, s);
         });
     }
 
@@ -43,7 +43,7 @@ where
             return;
         }
 
-        let offset = tree.with_state(|state: &ListState| state.offset());
+        let offset = tree.state::<ListState, _, _>(|s| s.offset());
         let selection = match self.direction_ref() {
             ListDirection::TopToBottom => match event {
                 crossterm::event::Event::Key(key_event) => match key_event.code {
@@ -88,16 +88,16 @@ where
         };
 
         if let Some(selection) = selection {
-            tree.with_state_mut(|state: &mut ListState| {
+            tree.state_mut::<ListState, _, _>(|s| {
                 match selection {
-                    Selection::Previous => state.select_previous(),
-                    Selection::Next => state.select_next(),
-                    Selection::Index(index) => *state = state.with_selected(Some(index)),
+                    Selection::Previous => s.select_previous(),
+                    Selection::Next => s.select_next(),
+                    Selection::Index(index) => *s = s.with_selected(Some(index)),
                 }
 
                 ctx.redraw();
                 if let Some(f) = self.on_select_ref()
-                    && let Some(item_index) = state.selected()
+                    && let Some(item_index) = s.selected()
                     && let Some(item) = self.items_as_slice().get(item_index)
                 {
                     ctx.publish(f(item));
@@ -110,7 +110,7 @@ where
         TypeId::of::<List<'static, Item, Message>>()
     }
 
-    fn state(&self) -> Option<GenericState> {
-        Some(RefCell::new(Box::new(ListState::default())))
+    fn state(&self) -> Option<State> {
+        Some(State::new(ListState::default()))
     }
 }

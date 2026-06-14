@@ -22,12 +22,19 @@ pub mod container;
 pub mod list;
 pub mod paragraph;
 
-pub type GenericState = RefCell<Box<dyn Any>>;
+#[derive(Debug)]
+pub struct State(RefCell<Box<dyn Any>>);
+
+impl State {
+    pub fn new<State: Any>(state: State) -> Self {
+        Self(RefCell::new(Box::new(state)))
+    }
+}
 
 #[derive(Debug)]
 pub struct Tree {
     id: TypeId,
-    state: Option<GenericState>,
+    state: Option<State>,
     children: Vec<Tree>,
 }
 
@@ -43,28 +50,32 @@ impl Tree {
                 .collect(),
         }
     }
-    pub fn with_state<S, F, O>(&self, f: F) -> O
+    pub fn state<S, F, O>(&self, f: F) -> O
     where
         S: 'static,
         F: FnOnce(&S) -> O,
     {
-        let state = self.state.as_ref().expect("tree has no state").borrow();
-
-        let state = state
+        let generic = self.state.as_ref().expect("tree has no state").0.borrow();
+        let state = generic
             .downcast_ref::<S>()
             .expect("tree state has wrong type");
 
         f(state)
     }
 
-    pub fn with_state_mut<S, F, O>(&self, f: F) -> O
+    pub fn state_mut<S, F, O>(&self, f: F) -> O
     where
         S: 'static,
         F: FnOnce(&mut S) -> O,
     {
-        let mut state = self.state.as_ref().expect("tree has no state").borrow_mut();
+        let mut generic = self
+            .state
+            .as_ref()
+            .expect("tree has no state")
+            .0
+            .borrow_mut();
 
-        let state = state
+        let state = generic
             .downcast_mut::<S>()
             .expect("tree state has wrong type");
 
@@ -109,7 +120,7 @@ pub trait Element<Message> {
 
     fn id(&self) -> TypeId;
 
-    fn state(&self) -> Option<GenericState> {
+    fn state(&self) -> Option<State> {
         None
     }
 

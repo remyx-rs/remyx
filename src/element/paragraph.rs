@@ -1,4 +1,4 @@
-use std::{any::TypeId, cell::RefCell};
+use std::any::TypeId;
 
 use crossterm::event::Event;
 use ratatui_core::{
@@ -9,14 +9,14 @@ use ratatui_core::{
 use remyx_widgets::paragraph::{Axe, Paragraph, ParagraphState};
 
 use crate::{
-    element::{Element, GenericState, Tree},
+    element::{Element, State, Tree},
     runner::Context,
 };
 
 impl<Message> Element<Message> for Paragraph<'_> {
     fn draw(&self, tree: &Tree, area: Rect, buffer: &mut Buffer) {
-        tree.with_state_mut(|state: &mut ParagraphState| {
-            self.render(area, buffer, state);
+        tree.state_mut::<ParagraphState, _, _>(|s| {
+            self.render(area, buffer, s);
         });
     }
 
@@ -25,10 +25,10 @@ impl<Message> Element<Message> for Paragraph<'_> {
             return;
         }
 
-        if !tree.with_state(|s: &ParagraphState| s.limits_set()) {
-            tree.with_state_mut(|state: &mut ParagraphState| {
+        if !tree.state::<ParagraphState, _, _>(|s| s.limits_set()) {
+            tree.state_mut::<ParagraphState, _, _>(|s| {
                 let limits = get_limits(self, area);
-                state.limits(limits);
+                s.limits(limits);
             });
             ctx.redraw();
         }
@@ -54,9 +54,9 @@ impl<Message> Element<Message> for Paragraph<'_> {
                 _ => None,
             },
             Event::Resize(..) => {
-                tree.with_state_mut(|state: &mut ParagraphState| {
+                tree.state_mut::<ParagraphState, _, _>(|s| {
                     let limits = get_limits(self, area);
-                    state.limits(limits);
+                    s.limits(limits);
                 });
                 ctx.redraw();
                 None
@@ -65,11 +65,11 @@ impl<Message> Element<Message> for Paragraph<'_> {
         };
 
         if let Some(scroll) = scroll {
-            tree.with_state_mut(|state: &mut ParagraphState| match scroll {
-                Scroll::Up => state.offset_add(Axe::Y, -1),
-                Scroll::Down => state.offset_add(Axe::Y, 1),
-                Scroll::Left => state.offset_add(Axe::X, -1),
-                Scroll::Right => state.offset_add(Axe::X, 1),
+            tree.state_mut::<ParagraphState, _, _>(|s| match scroll {
+                Scroll::Up => s.offset_add(Axe::Y, -1),
+                Scroll::Down => s.offset_add(Axe::Y, 1),
+                Scroll::Left => s.offset_add(Axe::X, -1),
+                Scroll::Right => s.offset_add(Axe::X, 1),
             });
 
             ctx.redraw();
@@ -77,15 +77,15 @@ impl<Message> Element<Message> for Paragraph<'_> {
     }
 
     fn diff(&self, tree: &mut Tree) {
-        let length = tree.with_state(|s: &ParagraphState| s.len());
+        let length = tree.state::<ParagraphState, _, _>(|s| s.len());
         if self.len() != length {
             tree.state = Element::<Message>::state(self);
         }
     }
 
-    fn state(&self) -> Option<GenericState> {
+    fn state(&self) -> Option<State> {
         let length = self.len();
-        Some(RefCell::new(Box::new(ParagraphState::new(length))))
+        Some(State::new(ParagraphState::new(length)))
     }
     fn id(&self) -> std::any::TypeId {
         TypeId::of::<Paragraph<'static>>()
