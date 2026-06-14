@@ -18,7 +18,7 @@ rust-version = "1.92"
 [dependencies]
 ratatui-core = { version = "0.1.1" }
 ratatui-crossterm = { version = "0.1.1" }
-remyx-widgets = { git = "https://github.com/remyx-rs/ratatui-widgets.git", branch = "feature/paragraph-stateful" }
+remyx-widgets = { git = "https://github.com/remyx-rs/ratatui-widgets.git", branch = "main" }
 crossterm = { version = "0.29", features = ["event-stream"] }
 futures = { version = "0.3.32" }
 tokio = {version = "1.52.3", features = ["full"], optional = true}
