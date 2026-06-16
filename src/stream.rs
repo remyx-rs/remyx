@@ -17,7 +17,7 @@ use crate::runtime::{
 /// Subscribers whose channels are closed are automatically removed.
 pub struct Tee<Runtime, Item>
 where
-    Item: Send + Clone,
+    Item: Send,
     Runtime: runtime::Runtime,
 {
     subscribers: Vec<MpscSenderOf<Runtime, Item>>,
@@ -26,7 +26,7 @@ where
 
 impl<Runtime, Item> Tee<Runtime, Item>
 where
-    Item: Send + Clone,
+    Item: Send,
     Runtime: runtime::Runtime,
 {
     pub fn new(stream: BoxStream<'static, Item>) -> Self {
@@ -85,7 +85,6 @@ impl<Runtime, Item> futures::stream::FusedStream for Tee<Runtime, Item>
 where
     Item: Send + Clone,
     Runtime: runtime::Runtime,
-    Self: Unpin,
 {
     fn is_terminated(&self) -> bool {
         false

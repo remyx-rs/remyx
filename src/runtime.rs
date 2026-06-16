@@ -50,10 +50,7 @@ pub trait JoinHandle<T>: Unpin + Send {
     ) -> std::task::Poll<Result<T, JoinError>>;
 }
 
-pub struct JoinHandleFut<JoinHandle, T>
-where
-    JoinHandle: self::JoinHandle<T>,
-{
+pub struct JoinHandleFut<JoinHandle, T> {
     handle: JoinHandle,
     _marker: PhantomData<fn() -> T>,
 }

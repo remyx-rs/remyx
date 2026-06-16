@@ -23,7 +23,7 @@ pub trait Listener<S: Stream>: Send {
     fn local_addr(&self) -> io::Result<SocketAddr>;
 }
 
-pub trait Stream: Read + Write + State {
+pub trait Stream: Read + Write {
     type Read: Read;
     type Write: Write;
 

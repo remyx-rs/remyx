@@ -12,7 +12,6 @@ pub struct Runner<'a, Application, Runtime, Terminal>
 where
     Application: crate::Application,
     Runtime: runtime::Runtime,
-    Terminal: terminal::Terminal,
 {
     terminal: Terminal,
     app: Application,
@@ -91,9 +90,11 @@ where
         let area = self.terminal.get_frame().area();
         let cursor = self.terminal.mouse();
         let mut ctx = Context::new(cursor);
+        if matches!(event, crossterm::event::Event::Resize(..)) {
+            ctx.redraw();
+        }
 
         self.app.view().update(&self.tree, area, event, &mut ctx);
-
         if !ctx.should_redraw() {
             return false;
         }

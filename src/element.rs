@@ -133,7 +133,7 @@ pub trait Element<Message> {
 
 macro_rules! impl_stateless_element {
     ($ty:ty) => {
-        impl<Message: 'static> Element<Message> for $ty {
+        impl<Message> Element<Message> for $ty {
             fn draw(&self, _tree: &Tree, area: Rect, buffer: &mut Buffer) {
                 self.render(area, buffer);
             }
@@ -158,7 +158,7 @@ impl_stateless_element!(Tabs<'_>);
 impl_stateless_element!(RatatuiLogo);
 impl_stateless_element!(RatatuiMascot);
 
-impl<'a, Message: 'static, F> Element<Message> for Canvas<'a, F>
+impl<'a, Message, F> Element<Message> for Canvas<'a, F>
 where
     F: Fn(&mut CanvasContext<'_>),
 {

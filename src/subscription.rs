@@ -1,4 +1,5 @@
 use crate::terminal;
+use crossterm::event::MouseEvent;
 use crossterm::event::{self, KeyEvent};
 use futures::Stream;
 use futures::stream::LocalBoxStream;
@@ -14,19 +15,21 @@ pub struct Active<Message> {
     sources: SelectAll<Source<Message>>,
 }
 
-impl<Message: 'static> Default for Active<Message> {
+impl<Message> Default for Active<Message> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<Message: 'static> Active<Message> {
+impl<Message> Active<Message> {
     pub fn new() -> Self {
         Self {
             sources: SelectAll::new(),
         }
     }
+}
 
+impl<Message: 'static> Active<Message> {
     fn add<Terminal: terminal::Terminal>(
         &mut self,
         terminal: &mut Terminal,
@@ -88,10 +91,7 @@ impl<Message> FusedStream for Active<Message> {
 type StreamFn<Terminal, Message> =
     Box<dyn FnOnce(&mut Terminal) -> LocalBoxStream<'static, Message>>;
 
-pub struct Subscription<Terminal, Message>
-where
-    Terminal: terminal::Terminal,
-{
+pub struct Subscription<Terminal, Message> {
     id: u64,
     builder: StreamFn<Terminal, Message>,
 }
@@ -138,6 +138,60 @@ where
                     future::ready(match res {
                         Ok(val) => match val {
                             event::Event::Key(key_event) => f(key_event),
+                            _ => None,
+                        },
+                        Err(_) => None,
+                    })
+                })
+                .boxed_local()
+        });
+
+        Self { id, builder }
+    }
+
+    pub fn mouse<F>(f: F) -> Self
+    where
+        F: Fn(MouseEvent) -> Option<Message> + 'static,
+    {
+        struct MouseListener;
+        let mut hasher = DefaultHasher::new();
+        TypeId::of::<MouseListener>().hash(&mut hasher);
+        let id = hasher.finish();
+
+        let builder = Box::new(move |terminal: &mut Terminal| {
+            terminal
+                .subscribe()
+                .filter_map(move |res| {
+                    future::ready(match res {
+                        Ok(val) => match val {
+                            event::Event::Mouse(event) => f(event),
+                            _ => None,
+                        },
+                        Err(_) => None,
+                    })
+                })
+                .boxed_local()
+        });
+
+        Self { id, builder }
+    }
+
+    pub fn window<F>(f: F) -> Self
+    where
+        F: Fn(u16, u16) -> Option<Message> + 'static,
+    {
+        struct WindowListener;
+        let mut hasher = DefaultHasher::new();
+        TypeId::of::<WindowListener>().hash(&mut hasher);
+        let id = hasher.finish();
+
+        let builder = Box::new(move |terminal: &mut Terminal| {
+            terminal
+                .subscribe()
+                .filter_map(move |res| {
+                    future::ready(match res {
+                        Ok(val) => match val {
+                            event::Event::Resize(x, y) => f(x, y),
                             _ => None,
                         },
                         Err(_) => None,
