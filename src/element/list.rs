@@ -33,15 +33,11 @@ where
             Index(usize),
         }
 
-        let items_area = if let Some(block) = self.block_as_ref() {
-            block.inner(area)
-        } else {
-            area
-        };
-
-        if !ctx.cursor().is_hovering(items_area) {
+        if !ctx.cursor().is_hovering(area) {
             return;
         }
+
+        let items_area = self.items_layout(area);
 
         let offset = tree.state::<ListState, _, _>(|s| s.offset());
         let selection = match self.direction_ref() {

@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "examples/html"]
+members = [".", "examples/html", "examples/table"]
 resolver = "3"
 
 [package]

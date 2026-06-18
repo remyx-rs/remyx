@@ -1,0 +1,10 @@
+[package]
+name = "table"
+version = "0.1.0"
+authors = ["Manuel Garcia de la Vega Hoyo <manuelgdlvh@gmail.com>"]
+edition = "2024"
+repository = "https://github.com/manuelgdlvh/remyx"
+rust-version = "1.92"
+
+[dependencies]
+remyx = { path = "../..", features =  ["tokio"] }

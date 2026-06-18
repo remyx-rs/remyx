@@ -21,6 +21,7 @@ use std::cell::RefCell;
 pub mod container;
 pub mod list;
 pub mod paragraph;
+pub mod table;
 
 #[derive(Debug)]
 pub struct State(RefCell<Box<dyn Any>>);
