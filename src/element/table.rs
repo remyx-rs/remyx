@@ -53,13 +53,8 @@ where
                 crossterm::event::MouseEventKind::Up(mouse_button)
                     if mouse_button.eq(&crossterm::event::MouseButton::Left) =>
                 {
-                    // Clicks on the header or footer fall outside the rows area.
-                    let within_rows = mouse_event.row >= items_area.y
-                        && mouse_event.row < items_area.bottom()
-                        && mouse_event.column >= items_area.x
-                        && mouse_event.column < items_area.right();
-
-                    within_rows
+                    ctx.cursor()
+                        .is_hovering(items_area)
                         .then(|| {
                             // Rows can span several lines (height + margins), so walk them from the
                             // offset accumulating spans until the total passes the clicked line.
