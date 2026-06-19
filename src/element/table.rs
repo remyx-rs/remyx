@@ -6,7 +6,10 @@ use crate::{
 };
 use ratatui_core::widgets::StatefulWidget;
 use ratatui_core::{buffer::Buffer, layout::Rect};
-use remyx_widgets::table::{Row, Table, TableState};
+use remyx_widgets::{
+    focus::Focusable,
+    table::{Row, Table, TableState},
+};
 
 impl<Item, Message> Element<Message> for Table<'static, Item, Message>
 where
@@ -36,7 +39,7 @@ where
             ColumnNext,
         }
 
-        if !ctx.cursor().is_hovering(area) {
+        if !ctx.cursor().is_hovering(area) && !self.is_focused() {
             return;
         }
 

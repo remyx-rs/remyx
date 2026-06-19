@@ -11,16 +11,35 @@ pub mod crossterm;
 pub type EventResult = Result<Event, io::ErrorKind>;
 
 #[derive(Debug, Clone, Copy)]
+pub struct Size {
+    pub width: u16,
+    pub height: u16,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Cursor {
     position: Position,
+    terminal_size: Size,
 }
 
 impl Cursor {
-    pub(crate) fn new(position: Position) -> Self {
-        Self { position }
+    pub(crate) fn new(position: Position, terminal_size: Size) -> Self {
+        Self {
+            position,
+            terminal_size,
+        }
     }
 
     pub fn is_hovering(&self, area: Rect) -> bool {
+        let at_terminal_edge = self.position.x == 0
+            || self.position.y == 0
+            || self.position.x >= self.terminal_size.width.saturating_sub(1)
+            || self.position.y >= self.terminal_size.height.saturating_sub(1);
+
+        if at_terminal_edge {
+            return false;
+        }
+
         self.position.x >= area.x
             && self.position.x < area.x + area.width
             && self.position.y >= area.y
