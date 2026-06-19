@@ -6,7 +6,10 @@ use ratatui_core::{
     layout::{Position, Rect},
     widgets::StatefulWidget,
 };
-use remyx_widgets::paragraph::{Axe, Paragraph, ParagraphState};
+use remyx_widgets::{
+    focus::Focusable,
+    paragraph::{Axe, Paragraph, ParagraphState},
+};
 
 use crate::{
     element::{Element, State, Tree},
@@ -21,7 +24,14 @@ impl<Message> Element<Message> for Paragraph<'_> {
     }
 
     fn update(&self, tree: &Tree, area: Rect, event: Event, ctx: &mut Context<Message>) {
-        if !ctx.cursor().is_hovering(area) {
+        enum Scroll {
+            Up,
+            Down,
+            Left,
+            Right,
+        }
+
+        if !ctx.cursor().is_hovering(area) && !self.is_focused() {
             return;
         }
 
@@ -31,13 +41,6 @@ impl<Message> Element<Message> for Paragraph<'_> {
                 s.limits(limits);
             });
             ctx.redraw();
-        }
-
-        enum Scroll {
-            Up,
-            Down,
-            Left,
-            Right,
         }
 
         let scroll = match event {

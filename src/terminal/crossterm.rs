@@ -7,7 +7,7 @@ use std::{
 use crate::{
     runtime::{self},
     stream,
-    terminal::{Cursor, EventResult, Terminal},
+    terminal::{Cursor, EventResult, Size, Terminal},
 };
 use crossterm::event::{Event, EventStream};
 use futures::{Stream, StreamExt, TryStreamExt, stream::FusedStream};
@@ -47,7 +47,10 @@ where
         Self {
             inner,
             event_stream: stream::Tee::new(stream),
-            mouse_pos: Position { x: 0, y: 0 },
+            mouse_pos: Position {
+                x: u16::MAX,
+                y: u16::MAX,
+            },
         }
     }
 }
@@ -57,7 +60,8 @@ where
     Runtime: runtime::Runtime,
 {
     fn mouse(&self) -> Cursor {
-        Cursor::new(self.mouse_pos)
+        let (width, height) = crossterm::terminal::size().unwrap_or_default();
+        Cursor::new(self.mouse_pos, Size { width, height })
     }
 
     fn subscribe(&mut self) -> impl Stream<Item = EventResult> + 'static {

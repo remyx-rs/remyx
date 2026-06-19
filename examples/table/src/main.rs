@@ -11,6 +11,7 @@ use remyx::runtime::tokio::Tokio;
 use remyx::terminal::crossterm::Crossterm;
 use remyx::widgets::block::Block;
 use remyx::widgets::borders::Borders;
+use remyx::widgets::focus::Focusable;
 use remyx::widgets::paragraph::Paragraph;
 use remyx::widgets::table::{Row, Table};
 use remyx::{Application, Element, Subscription, Task, runtime, terminal};
@@ -34,11 +35,28 @@ fn main() -> io::Result<()> {
 
 pub struct App {
     detail: String,
+    focus: Focus,
     exit: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Focus {
+    Table,
+    Detail,
+}
+
+impl Focus {
+    fn next(self) -> Self {
+        match self {
+            Focus::Table => Focus::Detail,
+            Focus::Detail => Focus::Table,
+        }
+    }
 }
 
 pub enum Message {
     DetailChanged(String),
+    FocusNext,
     Exit,
 }
 
@@ -48,65 +66,87 @@ impl Application for App {
     fn init<Runtime: runtime::Runtime>() -> (Self, Option<Task<Message>>) {
         let self_ = Self {
             detail: String::new(),
+            focus: Focus::Table,
             exit: false,
         };
         (self_, None)
     }
 
     fn view(&self) -> impl Element<Self::Message> {
+        let mut table = Table::new(
+            Language::ALL,
+            [
+                Constraint::Percentage(40),
+                Constraint::Percentage(20),
+                Constraint::Percentage(40),
+            ],
+        )
+        .header(
+            Row::new(vec!["Language", "Year", "Designer / Notes"]).style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        )
+        .block(
+            Block::default()
+                .title_top("Languages")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        )
+        .style(Style::default().fg(Color::White))
+        .row_highlight_style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::REVERSED | Modifier::BOLD),
+        )
+        .highlight_symbol("> ")
+        .on_select(|lang| {
+            Message::DetailChanged(format!(
+                "{} was created in {} by {}.",
+                lang.name(),
+                lang.year(),
+                lang.designer()
+            ))
+        })
+        .focus(matches!(self.focus, Focus::Table));
+
+        let mut paragraph = Paragraph::new(self.detail.clone())
+            .centered()
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Details")
+                    .border_style(Style::default().fg(Color::Blue)),
+            )
+            .style(Style::default().fg(Color::White))
+            .focus(matches!(self.focus, Focus::Detail));
+
+        match self.focus {
+            Focus::Table => {
+                table = table.block(
+                    Block::default()
+                        .title_top("Languages")
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(Color::Yellow)),
+                );
+            }
+            Focus::Detail => {
+                paragraph = paragraph.block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Details")
+                        .border_style(Style::default().fg(Color::Yellow)),
+                );
+            }
+        }
+
         Container::layout(Layout::vertical([
             Constraint::Percentage(70),
             Constraint::Percentage(30),
         ]))
-        .with(
-            Table::new(
-                Language::ALL,
-                [
-                    Constraint::Percentage(40),
-                    Constraint::Percentage(20),
-                    Constraint::Percentage(40),
-                ],
-            )
-            .header(
-                Row::new(vec!["Language", "Year", "Designer / Notes"]).style(
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            )
-            .block(
-                Block::default()
-                    .title_top("Languages")
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Cyan)),
-            )
-            .style(Style::default().fg(Color::White))
-            .row_highlight_style(
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::REVERSED | Modifier::BOLD),
-            )
-            .highlight_symbol("> ")
-            .on_select(|lang| {
-                Message::DetailChanged(format!(
-                    "{} was created in {} by {}.",
-                    lang.name(),
-                    lang.year(),
-                    lang.designer()
-                ))
-            }),
-        )
-        .with(
-            Paragraph::new(self.detail.clone())
-                .centered()
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .title("Details")
-                        .border_style(Style::default().fg(Color::Blue)),
-                )
-                .style(Style::default().fg(Color::White)),
-        )
+        .with(table)
+        .with(paragraph)
     }
 
     fn update<Runtime: runtime::Runtime>(
@@ -116,6 +156,10 @@ impl Application for App {
         match message {
             Message::DetailChanged(detail) => {
                 self.detail = detail;
+                None
+            }
+            Message::FocusNext => {
+                self.focus = self.focus.next();
                 None
             }
             Message::Exit => {
@@ -128,12 +172,15 @@ impl Application for App {
     fn subscription<Terminal: terminal::Terminal>(
         &self,
     ) -> Vec<Subscription<Terminal, Self::Message>> {
-        let exit = Subscription::key(|key| {
-            (key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL))
-                .then_some(Message::Exit)
+        let keys = Subscription::key(|key| match key.code {
+            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                Some(Message::Exit)
+            }
+            KeyCode::Tab => Some(Message::FocusNext),
+            _ => None,
         });
 
-        vec![exit]
+        vec![keys]
     }
 
     fn exit(&self) -> bool {

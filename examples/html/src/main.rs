@@ -12,6 +12,7 @@ use remyx::runtime::tokio::Tokio;
 use remyx::terminal::crossterm::Crossterm;
 use remyx::widgets::block::Block;
 use remyx::widgets::borders::Borders;
+use remyx::widgets::focus::Focusable;
 use remyx::widgets::list::{List, ListItem};
 use remyx::widgets::paragraph::Paragraph;
 use remyx::{Application, Element, Subscription, Task, runtime, terminal};
@@ -35,12 +36,29 @@ fn main() -> io::Result<()> {
 
 pub struct App {
     html_page: String,
+    focus: Focus,
     exit: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Focus {
+    List,
+    Content,
+}
+
+impl Focus {
+    fn next(self) -> Self {
+        match self {
+            Focus::List => Focus::Content,
+            Focus::Content => Focus::List,
+        }
+    }
 }
 
 pub enum Message {
     LinkChanged(Link),
     ContentChanged(String),
+    FocusNext,
     Exit,
 }
 
@@ -50,44 +68,66 @@ impl Application for App {
     fn init<Runtime: runtime::Runtime>() -> (Self, Option<Task<Message>>) {
         let self_ = Self {
             html_page: String::new(),
+            focus: Focus::List,
             exit: false,
         };
         (self_, None)
     }
 
     fn view(&self) -> impl Element<Self::Message> {
+        let mut list = List::new([Link::C, Link::Java, Link::Rust])
+            .block(
+                Block::default()
+                    .title_top("Links")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Cyan)),
+            )
+            .style(Style::default().fg(Color::White))
+            .highlight_style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::REVERSED | Modifier::BOLD),
+            )
+            .highlight_symbol("> ")
+            .on_select(|item| Message::LinkChanged(*item))
+            .focus(matches!(self.focus, Focus::List));
+
+        let mut paragraph = Paragraph::new(self.html_page.to_string())
+            .centered()
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Html Page")
+                    .border_style(Style::default().fg(Color::Blue)),
+            )
+            .style(Style::default().fg(Color::White))
+            .focus(matches!(self.focus, Focus::Content));
+
+        match self.focus {
+            Focus::List => {
+                list = list.block(
+                    Block::default()
+                        .title_top("Links")
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(Color::Yellow)),
+                );
+            }
+            Focus::Content => {
+                paragraph = paragraph.block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Html Page")
+                        .border_style(Style::default().fg(Color::Yellow)),
+                );
+            }
+        }
+
         Container::layout(Layout::vertical([
             Constraint::Percentage(20),
             Constraint::Percentage(80),
         ]))
-        .with(
-            List::new([Link::C, Link::Java, Link::Rust])
-                .block(
-                    Block::default()
-                        .title_top("Links")
-                        .borders(Borders::ALL)
-                        .border_style(Style::default().fg(Color::Cyan)),
-                )
-                .style(Style::default().fg(Color::White))
-                .highlight_style(
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::REVERSED | Modifier::BOLD),
-                )
-                .highlight_symbol("> ")
-                .on_select(|item| Message::LinkChanged(*item)),
-        )
-        .with(
-            Paragraph::new(self.html_page.to_string())
-                .centered()
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .title("Html Page")
-                        .border_style(Style::default().fg(Color::Blue)),
-                )
-                .style(Style::default().fg(Color::White)),
-        )
+        .with(list)
+        .with(paragraph)
     }
 
     fn update<Runtime: runtime::Runtime>(
@@ -113,6 +153,10 @@ impl Application for App {
                 self.html_page = content;
                 None
             }
+            Message::FocusNext => {
+                self.focus = self.focus.next();
+                None
+            }
             Message::Exit => {
                 self.exit = true;
                 None
@@ -123,12 +167,15 @@ impl Application for App {
     fn subscription<Terminal: terminal::Terminal>(
         &self,
     ) -> Vec<Subscription<Terminal, Self::Message>> {
-        let exit = Subscription::key(|key| {
-            (key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL))
-                .then_some(Message::Exit)
+        let keys = Subscription::key(|key| match key.code {
+            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                Some(Message::Exit)
+            }
+            KeyCode::Tab => Some(Message::FocusNext),
+            _ => None,
         });
 
-        vec![exit]
+        vec![keys]
     }
 
     fn exit(&self) -> bool {

@@ -7,7 +7,10 @@ use crate::{
 use crossterm::event::{Event, MouseButton};
 use ratatui_core::widgets::StatefulWidget;
 use ratatui_core::{buffer::Buffer, layout::Rect};
-use remyx_widgets::list::{List, ListDirection, ListItem, ListState};
+use remyx_widgets::{
+    focus::Focusable,
+    list::{List, ListDirection, ListItem, ListState},
+};
 
 impl<Item, Message> Element<Message> for List<'static, Item, Message>
 where
@@ -33,12 +36,11 @@ where
             Index(usize),
         }
 
-        if !ctx.cursor().is_hovering(area) {
+        if !ctx.cursor().is_hovering(area) && !self.is_focused() {
             return;
         }
 
         let items_area = self.items_layout(area);
-
         let offset = tree.state::<ListState, _, _>(|s| s.offset());
         let selection = match self.direction_ref() {
             ListDirection::TopToBottom => match event {
@@ -51,8 +53,13 @@ where
                     crossterm::event::MouseEventKind::Up(mouse_button)
                         if mouse_button.eq(&MouseButton::Left) =>
                     {
-                        let item_index = (mouse_event.row - items_area.y) as usize + offset;
-                        (item_index < self.len()).then_some(Selection::Index(item_index))
+                        ctx.cursor()
+                            .is_hovering(items_area)
+                            .then(|| {
+                                let item_index = (mouse_event.row - items_area.y) as usize + offset;
+                                (item_index < self.len()).then_some(Selection::Index(item_index))
+                            })
+                            .flatten()
                     }
                     crossterm::event::MouseEventKind::ScrollUp => Some(Selection::Previous),
                     crossterm::event::MouseEventKind::ScrollDown => Some(Selection::Next),
@@ -70,10 +77,16 @@ where
                     crossterm::event::MouseEventKind::Up(mouse_button)
                         if mouse_button.eq(&MouseButton::Left) =>
                     {
-                        let item_index = (items_area.y + items_area.height - 1 - mouse_event.row)
-                            as usize
-                            + offset;
-                        (item_index < self.len()).then_some(Selection::Index(item_index))
+                        ctx.cursor()
+                            .is_hovering(items_area)
+                            .then(|| {
+                                let item_index =
+                                    (items_area.y + items_area.height - 1 - mouse_event.row)
+                                        as usize
+                                        + offset;
+                                (item_index < self.len()).then_some(Selection::Index(item_index))
+                            })
+                            .flatten()
                     }
                     crossterm::event::MouseEventKind::ScrollUp => Some(Selection::Next),
                     crossterm::event::MouseEventKind::ScrollDown => Some(Selection::Previous),
