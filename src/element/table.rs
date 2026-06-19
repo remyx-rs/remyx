@@ -117,11 +117,19 @@ where
         }
     }
 
+    fn diff(&self, tree: &mut Tree) {
+        let length = tree.state::<TableState, _, _>(|s| s.len());
+        if self.len() != length {
+            tree.state = Element::<Message>::state(self);
+        }
+    }
+
     fn id(&self) -> TypeId {
         TypeId::of::<Table<'static, Item, Message>>()
     }
 
     fn state(&self) -> Option<State> {
-        Some(State::new(TableState::default()))
+        let length = self.len();
+        Some(State::new(TableState::new(length)))
     }
 }

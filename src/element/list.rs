@@ -102,11 +102,19 @@ where
         }
     }
 
+    fn diff(&self, tree: &mut Tree) {
+        let length = tree.state::<ListState, _, _>(|s| s.len());
+        if self.len() != length {
+            tree.state = Element::<Message>::state(self);
+        }
+    }
+
     fn id(&self) -> TypeId {
         TypeId::of::<List<'static, Item, Message>>()
     }
 
     fn state(&self) -> Option<State> {
-        Some(State::new(ListState::default()))
+        let length = self.len();
+        Some(State::new(ListState::new(length)))
     }
 }
