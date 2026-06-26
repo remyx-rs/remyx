@@ -46,6 +46,17 @@ where
         let items_area = self.items_layout(area);
         let movement = match event {
             crossterm::event::Event::Key(key_event) => match key_event.code {
+                crossterm::event::KeyCode::Enter => {
+                    tree.state::<TableState, _, _>(|s| {
+                        if let Some(f) = self.on_submit_ref()
+                            && let Some(item_index) = s.selected()
+                            && let Some(item) = self.items_as_slice().get(item_index)
+                        {
+                            ctx.publish(f(item));
+                        }
+                    });
+                    None
+                }
                 crossterm::event::KeyCode::Up => Some(Movement::RowPrevious),
                 crossterm::event::KeyCode::Down => Some(Movement::RowNext),
                 crossterm::event::KeyCode::Left => Some(Movement::ColumnPrevious),
